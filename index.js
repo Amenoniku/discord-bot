@@ -20,26 +20,27 @@ const openai = new OpenAIApi(configuration)
 const contexts = {}
 
 client.on('messageCreate', async message => {
+  const usakRegExp = /^усак/i
+  const callToBot = usakRegExp.test(message.content)
+  if (
+    message.author.bot ||
+    (message.author.bot && callToBot) ||
+    (!message.author.bot && !callToBot)
+  ) return
+  const authorId = message.author.id
+  const messageToGPT = message.content.replace(usakRegExp, '').trim()
+  console.log(messageToGPT);
+  switch (messageToGPT) {
+    case 'сменим тему':
+    case 'смени тему':
+    case 'тему смени':
+      contexts[authorId] = ''
+      await message.reply('Ааа, ну давай...')
+      return
+      }
+      contexts[authorId] = contexts[authorId] || ''
+      contexts[authorId] += `${messageToGPT}\n`
   try {
-    const usakRegExp = /^усак/i
-    const callToBot = usakRegExp.test(message.content)
-    if (
-      message.author.bot ||
-      (message.author.bot && callToBot) ||
-      (!message.author.bot && !callToBot)
-    ) return
-    const authorId = message.author.id
-    const messageToGPT = message.content.replace(usakRegExp, '').trim()
-    console.log(messageToGPT);
-    switch (messageToGPT) {
-      case 'сменим тему':
-      case 'смени тему':
-        contexts[authorId] = ''
-        await message.reply('Ну давай...')
-        return
-    }
-    contexts[authorId] = contexts[authorId] || ''
-    contexts[authorId] += `${messageToGPT}\n`
     let loading = await message.reply('Падажжи, думаю...')
     const gptResponce = await openai.createCompletion({
       model: "text-davinci-003",
@@ -55,7 +56,8 @@ client.on('messageCreate', async message => {
     contexts[authorId] += resMessage
     message.reply(resMessage)
   } catch (error) {
-    console.log(error);
+    message.reply('Бля чел, че доебался то? Спроси ченить попроще... И вообще, иди на хуй')
+    contexts[authorId] = ''
   }
 })
 

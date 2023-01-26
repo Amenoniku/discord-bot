@@ -40,8 +40,8 @@ client.on('messageCreate', async message => {
       }
       contexts[authorId] = contexts[authorId] || ''
       contexts[authorId] += `${messageToGPT}\n`
+      let loading = await message.reply('Падажжи, думаю...')
   try {
-    let loading = await message.reply('Падажжи, думаю...')
     const gptResponce = await openai.createCompletion({
       model: "text-davinci-003",
       prompt: contexts[authorId],
@@ -56,10 +56,16 @@ client.on('messageCreate', async message => {
     contexts[authorId] += resMessage
     message.reply(resMessage)
   } catch (error) {
-    message.reply('Бля чел, че доебался то? Спроси ченить попроще... И вообще, иди на хуй')
+    loading.delete()
+    message.reply('Бля чел, че доебался то? Спроси ченить попроще... И вообще, иди на хуй!')
     contexts[authorId] = ''
   }
 })
 
+client.on('ready', () => {
+  console.log(`Logged in as ${client.user.tag}!`)
+  const channel = client.channels.cache.find(ch => ch.id == '436386682594525184')
+  channel.send('Усак на связи!')
+});
+
 client.login(process.env.DISCORD_TOKEN)
-console.log('Усак на связи!');

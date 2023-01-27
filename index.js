@@ -18,7 +18,7 @@ const configuration = new Configuration({
 const openai = new OpenAIApi(configuration)
 
 const maxTokens = 2048
-const context = []
+let context = []
 
 client.on('messageCreate', async message => {
   const usakRegExp = /^усак/i

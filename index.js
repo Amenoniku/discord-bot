@@ -28,8 +28,8 @@ client.on('messageCreate', async message => {
     (message.author.bot && callToBot) ||
     (!message.author.bot && !callToBot)
   ) return
-  const authorId = message.author.id
   const messageToGPT = message.content.replace(usakRegExp, '').trim()
+  if (!messageToGPT) return
   console.log(messageToGPT);
   switch (messageToGPT) {
     case 'сменим тему':
@@ -56,7 +56,7 @@ client.on('messageCreate', async message => {
       loading.delete()
       const resMessage = `${gptResponce.data.choices[0].text}`
       context.push(resMessage)
-      message.reply(resMessage)
+      if (resMessage) message.reply(resMessage)
     } catch (error) {
       loading.edit('Бля чел, я заебался! Спроси ченить попроще... И вообще, иди на хуй!')
       context = []

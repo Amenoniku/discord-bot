@@ -35,20 +35,21 @@ client.on('messageCreate', async message => {
     case 'сменим тему':
     case 'смени тему':
     case 'тему смени':
+    case 'тема':
       context = []
       await message.reply('Ааа, ну давай...')
       return
   }
-  context.push(`${messageToGPT}`)
-  while (context.join().length >= (maxTokens - 300)) context.shift()
+  // context.push(`${messageToGPT}`)
+  // while (context.join().length >= (maxTokens - 300)) context.shift()
   let loading = await message.reply('Падажжи, думаю...')
   const sendRequest = async () => {
     try {
       const gptResponce = await openai.createCompletion({
         model: "text-davinci-003",
         prompt: context.join('\n').trim(),
-        temperature: 0.9,
-        max_tokens: maxTokens,
+        temperature: 0.2,
+        max_tokens: 256,
         top_p: 1,
         frequency_penalty: 0,
         presence_penalty: 0

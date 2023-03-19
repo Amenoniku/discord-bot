@@ -22,6 +22,7 @@ let context = []
 let loading = false
 
 client.on('messageCreate', async message => {
+  const channelId = message.channelId
   const usakRegExp = /^усак/i
   const callToBot = usakRegExp.test(message.content)
   if (
@@ -30,9 +31,8 @@ client.on('messageCreate', async message => {
     (!message.author.bot && !callToBot)
   ) return
   const messageToGPT = message.content.replace(usakRegExp, '').trim()
-  if (!messageToGPT) return
-  console.log(messageToGPT);
-  if (loading) return
+  if (!messageToGPT && loading) return
+
   if (/^нарисуй/i.test(messageToGPT)) {
     loading = await message.reply('Падажжи, рисую...')
     try {
@@ -58,17 +58,18 @@ client.on('messageCreate', async message => {
     case 'смени тему':
     case 'тему смени':
     case 'тема':
-      context = []
+      context[channelId] = []
       await message.reply('Ааа, ну давай...')
       return
   }
   loading = await message.reply('Падажжи, думаю...')
-  context.push({role: context.length ? 'user' : 'system', content: `${messageToGPT}`})
+  context[channelId] = context[channelId] || []
+  context[channelId].push({role: context[channelId].length ? 'user' : 'system', content: `${messageToGPT}`})
   const sendRequest = async () => {
     try {
       const options = {
         model: "gpt-3.5-turbo",
-        messages: context,
+        messages: context[channelId],
         max_tokens: maxTokens,
         temperature: 0.2,
         top_p: 1,
@@ -76,28 +77,24 @@ client.on('messageCreate', async message => {
         presence_penalty: 0
       }
       const gptResponce = await openai.createChatCompletion(options)
-      // const gptResponce = await openai.createCompletion(options)
       loading.delete()
       const resMessage = `${gptResponce.data.choices[0].message.content}`
       if (!resMessage) return loading.edit('Чет сервак молчит...')
-      console.log(gptResponce.data)
-      context.push({role: 'assistant', content: resMessage})
-      //if there are more than 2000 characters in resMessage, then it is broken into pieces of 2000 characters each
-      if (resMessage.length > 2000) {
-        const maxLength = 2000;
-        const numPieces = Math.ceil(resMessage.length / maxLength);
-        const messagePieces = [];
+      // console.log(gptResponce.data)
+      context[channelId].push({role: 'assistant', content: resMessage})
+      const maxMessageLength = 2000;
+      if (resMessage.length > maxMessageLength) {
+        const numPieces = Math.ceil(resMessage.length / maxMessageLength);
         for (let i = 0; i < numPieces; i++) {
-          const start = i * maxLength;
-          const end = start + maxLength;
+          const start = i * maxMessageLength;
+          const end = start + maxMessageLength;
           const piece = resMessage.substring(start, end);
           message.reply(piece);
         }   
       } else message.reply(resMessage)
     } catch (error) {
-      console.log(error);
       loading.edit(`Бля чел, я заебался! Спроси ченить попроще... И вообще, иди на хуй! ${error.response.statusText}`)
-      context = []
+      context[channelId] = []
     } finally {
       loading = false
     }

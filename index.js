@@ -52,7 +52,9 @@ client.on('messageCreate', async message => {
     }
     return
   }
-
+  if (/^контекст/i.test(messageToGPT)) {
+    message.reply(JSON.stringify(context))
+  }
   switch (messageToGPT) {
     case 'сменим тему':
     case 'смени тему':
@@ -66,6 +68,7 @@ client.on('messageCreate', async message => {
   context[channelId] = context[channelId] || []
   context[channelId].push({role: context[channelId].length ? 'user' : 'system', content: `${messageToGPT}`})
   const sendRequest = async () => {
+    console.log(context);
     try {
       const options = {
         model: "gpt-3.5-turbo",

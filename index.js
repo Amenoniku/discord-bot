@@ -31,6 +31,10 @@ client.on('messageCreate', async message => {
     (!message.author.bot && !callToBot)
   ) return
   const messageToGPT = message.content.replace(usakRegExp, '').trim()
+
+  if (/^контекст/i.test(messageToGPT)) {
+    return message.reply(JSON.stringify(context))
+  }
   if (!messageToGPT && loading) return
 
   if (/^нарисуй/i.test(messageToGPT)) {
@@ -51,9 +55,6 @@ client.on('messageCreate', async message => {
       loading = false
     }
     return
-  }
-  if (/^контекст/i.test(messageToGPT)) {
-    message.reply(JSON.stringify(context))
   }
   switch (messageToGPT) {
     case 'сменим тему':

@@ -96,6 +96,7 @@ client.on('messageCreate', async message => {
           message.reply(piece);
         }   
       } else message.reply(resMessage)
+      console.log(context)
     } catch (error) {
       loading.edit(`Бля чел, я заебался! Спроси ченить попроще... И вообще, иди на хуй! ${error.response.statusText}`)
       context[channelId] = []

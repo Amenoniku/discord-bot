@@ -1,4 +1,4 @@
-import { OpenAIApi } from 'openai'
+import type OpenAI from 'openai'
 import { encode } from "gpt-3-encoder"
 
 import { cutMessage } from "../utils"
@@ -28,7 +28,7 @@ export class AI implements AIInterface {
   public context: Context = {}
   private channelId: ChannelId = ''
 
-  constructor(private api: OpenAIApi) {}
+  constructor(private api: OpenAI) {}
 
   public async draw(prompt: string): Promise<string> {
     console.log('drawing...');
@@ -40,12 +40,13 @@ export class AI implements AIInterface {
   }
   private async imageRequest(prompt: string): Promise<string> {
     try {
-      const response = await this.api.createImage({
+      const response = await this.api.images.generate({
+        model: "dall-e-3",
         prompt,
         n: 1,
         size: "1024x1024",
       })
-      return response.data.data[0].url
+      return response.data[0].url
     } catch (error) {
       throw (`Сорян но такую хуйню не рисую! ${error.response.statusText}`)
     }
@@ -64,7 +65,7 @@ export class AI implements AIInterface {
   }
   private async textRequest(): Promise<string> {
     try {
-      const gptResponce = await this.api.createChatCompletion({
+      const gptResponce = await this.api.chat.completions.create({
         model: "gpt-3.5-turbo",
         messages: this.context[this.channelId],
         max_tokens: this.maxTokens,
@@ -73,7 +74,7 @@ export class AI implements AIInterface {
         frequency_penalty: 0,
         presence_penalty: 0
       })
-      return `${gptResponce.data.choices[0].message.content}`
+      return `${gptResponce.choices[0].message.content}`
     } catch (error) {
       // this.clearContext()
       throw `Бля чел, я заебался! Спроси ченить попроще... И вообще, иди на хуй! ${error.response.statusText}`

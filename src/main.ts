@@ -13,7 +13,6 @@ const client = new Client({
 })
 
 const configuration = {
-  organization: process.env.OPENAI_ORG,
   apiKey: process.env.OPENAI_KEY
 }
 

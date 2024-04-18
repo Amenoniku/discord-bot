@@ -48,7 +48,7 @@ export class AI implements AIInterface {
       })
       return response.data[0].url
     } catch (error) {
-      throw (`Сорян но такую хуйню не рисую! ${error.response.statusText}`)
+      throw (`Сорян но такую хуйню не рисую! ${error.error.message}`)
     }
   }
 
@@ -74,28 +74,26 @@ export class AI implements AIInterface {
         frequency_penalty: 0,
         presence_penalty: 0
       })
-      return `${gptResponce.choices[0].message.content}`
+      return gptResponce.choices[0].message.content
     } catch (error) {
-      // this.clearContext()
-      throw `Бля чел, я заебался! Спроси ченить попроще... И вообще, иди на хуй! ${error.response.statusText}`
+      throw `Бля чел, я заебался! Спроси ченить попроще... И вообще, иди на хуй! ${error.error.message}`
     }
   }
 
   private addContextItem(content: string, role?: Role) {
     const channelContext = this.context[this.channelId] || []
+    if (channelContext.length === 0) channelContext.push({
+      role: 'system',
+      content: 'Ты быдло гопник и по возможности отвечай панаскими цитатами'
+    })
     const currentTokens = encode([
       content,
       channelContext.map(it => it.content).join()
     ].join()).length
     while (currentTokens > this.maxTokens) {
-      channelContext.shift()
+      channelContext.splice(1, 1)
     }
-    channelContext.push({
-      role: role === 'user' ?
-        channelContext.length ? 'user' : 'system'
-      : 'assistant',
-      content
-    })
+    channelContext.push({role, content})
     this.context[this.channelId] = channelContext
   }
 

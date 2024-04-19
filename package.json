@@ -1,12 +1,12 @@
 {
-  "name": "chatgpt-discord-bot",
+  "name": "discord-bot",
   "version": "1.0.0",
   "description": "My ChatGPT bot for Discord",
-  "main": "index.ts",
+  "main": "src/main.ts",
   "scripts": {
     "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start-prod": "node index.js",
+    "start-prod": "node dist/main.js",
     "dev": "nodemon src/main.ts"
   },
   "keywords": [

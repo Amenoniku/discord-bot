@@ -17,18 +17,53 @@ export class Bot implements BotInterface {
 
   private loading: boolean = false
   private loadingMessage: Message
-  private botName: string = 'Ус'
   private channelId: ChannelId = ''
   private ai: AI
   private music: Music
 
   constructor(
     private client: Client,
-    botName?: string
+    private botName: string
   ) {
-    if (botName) this.botName = botName
     this.ai = new AI()
     this.music = new Music(client)
+  }
+
+  private async messageProcessing(message: Message) {
+    this.channelId = message.channel.id
+    let messageToBot: MessageToBot = this.callToBot(message)
+    if (this.loading || (!this.loading && !messageToBot)) return
+    messageToBot = messageToBot.toString()
+    try {
+      switch (messageToBot.match(/^\S+/)?.[0]) {
+
+        // Музыкальные обращения
+        case 'g':
+          await this.loadingOn(message, 'ща запою...')
+          this.music.play(xTrim(messageToBot, 'g'))
+          break
+
+        // chatgpt обращения
+        case 'контекст': message.reply(JSON.stringify(this.ai.context)); break
+        case 'нарисуй':
+          await this.loadingOn(message, 'рисую...')
+          message.reply(await this.ai.draw(xTrim(messageToBot, 'нарисуй')))
+          break
+        case 'тема':
+          this.ai.clearContext()
+          await message.reply('Ааа, ну давай...')
+          break
+        default:
+          await this.loadingOn(message, 'думаю...')
+          const cuttedMessage = await this.ai.think(messageToBot, this.channelId)
+          cuttedMessage.forEach((chunk) => message.reply(chunk))
+          break
+      }
+    } catch (error) {
+      this.loadingError(error)
+    } finally {
+      this.loadingOff()
+    }
   }
 
   public start() {
@@ -61,44 +96,6 @@ export class Bot implements BotInterface {
     const isCallToBot = message.author.bot === false && botNameTest
     if (isCallToBot) return message.content.replace(botNameRegExp, '').trim()
     else return false
-  }
-
-  private async messageProcessing(message: Message) {
-    this.channelId = message.channel.id
-    let messageToBot: MessageToBot = this.callToBot(message)
-    if (this.loading || (!this.loading && !messageToBot)) return
-    messageToBot = messageToBot.toString()
-    try {
-      switch (messageToBot.match(/^\S+/)?.[0]) {
-
-        case 'го':
-          await this.loadingOn(message, 'ща запою...')
-          this.music.play(xTrim(messageToBot, 'го'))
-          break
-
-        case 'контекст': message.reply(JSON.stringify(this.ai.context)); break
-
-        case 'нарисуй':
-          await this.loadingOn(message, 'рисую...')
-          message.reply(await this.ai.draw(xTrim(messageToBot, 'нарисуй')))
-          break
-
-        case 'тема':
-          this.ai.clearContext()
-          await message.reply('Ааа, ну давай...')
-          break
-
-        default:
-          await this.loadingOn(message, 'думаю...')
-          const cuttedMessage = await this.ai.think(messageToBot, this.channelId)
-          cuttedMessage.forEach((chunk) => message.reply(chunk))
-          break
-      }
-    } catch (error) {
-      this.loadingError(error)
-    } finally {
-      this.loadingOff()
-    }
   }
 
 }

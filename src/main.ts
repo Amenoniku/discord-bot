@@ -13,5 +13,5 @@ const client = new Client({
 
 client.login(process.env.DISCORD_TOKEN)
 
-const bot = new Bot(client)
+const bot = new Bot(client, process.env.BOT_NAME)
 bot.start()

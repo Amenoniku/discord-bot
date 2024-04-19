@@ -40,7 +40,15 @@ export class Bot implements BotInterface {
         // Музыкальные обращения
         case 'g':
           await this.loadingOn(message, 'ща запою...')
-          this.music.play(xTrim(messageToBot, 'g'))
+          this.music.play(xTrim(messageToBot, 'g'), message.member.voice.channel)
+          break
+        case 'падажжи':
+          await this.loadingOn(message, 'окей бро, притормаживаю...')
+          this.music.player.pause()
+          break
+        case 'погнали':
+          await this.loadingOn(message, 'продолжаем...')
+          this.music.player.unpause()
           break
 
         // chatgpt обращения

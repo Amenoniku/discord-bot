@@ -1,5 +1,7 @@
-import type OpenAI from 'openai'
+import OpenAI from 'openai'
 import { encode } from "gpt-3-encoder"
+
+require('dotenv').config()
 
 import { cutMessage } from "../utils"
 
@@ -25,10 +27,13 @@ type ContextItem = {
 export class AI implements AIInterface {
 
   private maxTokens: number = 2048
+  private api: OpenAI
   public context: Context = {}
   private channelId: ChannelId = ''
 
-  constructor(private api: OpenAI) {}
+  constructor() {
+    this.api = new OpenAI({apiKey: process.env.OPENAI_KEY})
+  }
 
   public async draw(prompt: string): Promise<string> {
     console.log('drawing...');

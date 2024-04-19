@@ -22,9 +22,9 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
-    "discord.js": "^14.12.1",
+    "discord.js": "^14.14.1",
     "dotenv": "^16.4.5",
     "gpt-3-encoder": "^1.1.4",
-    "openai": "^4.38.0"
+    "openai": "^4.38.1"
   }
 }

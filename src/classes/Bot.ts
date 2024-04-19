@@ -1,5 +1,5 @@
-import { Client } from "discord.js"
-import type { Message } from "discord.js"
+import { Events } from "discord.js"
+import type { Message, Client } from "discord.js"
 
 import { AI } from "./AI";
 import { Music } from "./Music";
@@ -24,21 +24,20 @@ export class Bot implements BotInterface {
 
   constructor(
     private client: Client,
-    api,
     botName?: string
   ) {
     if (botName) this.botName = botName
-    this.ai = new AI(api)
+    this.ai = new AI()
     this.music = new Music(client)
   }
 
   public start() {
-    this.client.on('ready', () => {
-      console.log(`Logged in as ${this.client.user.tag}!`)
+    this.client.once(Events.ClientReady, readyClient => {
+      console.log(`Logged in as ${readyClient.user.tag}!`)
       // const channel = this.client.channels.cache.find(ch => ch.id == '436386682594525184')
       // channel.send('Усак на связи!')
     })
-    this.client.on('messageCreate', this.messageProcessing.bind(this))
+    this.client.on(Events.MessageCreate, this.messageProcessing.bind(this))
   }
 
   private async loadingOn(message: Message, reply: string) {

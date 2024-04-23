@@ -1,10 +1,9 @@
-import { Client, GatewayIntentBits } from "discord.js"
-
 require('dotenv').config()
+import { Client, GatewayIntentBits } from "discord.js"
 
 import { Bot } from "./classes/Bot";
 
-const client = new Client({
+const discordClient = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
@@ -13,7 +12,7 @@ const client = new Client({
   ]
 })
 
-client.login(process.env.DISCORD_TOKEN)
+discordClient.login(process.env.DISCORD_TOKEN)
 
-const bot = new Bot(client, process.env.BOT_NAME)
+const bot = new Bot(discordClient, process.env.BOT_NAME)
 bot.start()

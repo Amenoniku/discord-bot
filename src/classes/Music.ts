@@ -1,5 +1,6 @@
+require('dotenv').config()
 import * as ytdl from 'ytdl-core';
-import type { VoiceBasedChannel, Client, VoiceState, GuildBasedChannel } from "discord.js"
+import type { VoiceBasedChannel, Client } from "discord.js"
 import {
   joinVoiceChannel,
   VoiceConnection,
@@ -12,28 +13,37 @@ import {
   NoSubscriberBehavior,
   StreamType,
 } from "@discordjs/voice"
-
+import { google, youtube_v3 } from 'googleapis';
 
 interface MusicInterface {
   player: AudioPlayer
+  clearQueue(): void
+  renderQueue(): void
   play(prompt: string, voiceChannel: VoiceBasedChannel): Promise<string>
 }
 
-type Track = ytdl.MoreVideoDetails
+type Track = {
+  url: string
+  title: string
+}
 
 export class Music implements MusicInterface {
 
-  public player: AudioPlayer
-  private voiceConnection: VoiceConnection
+  private ytapi: youtube_v3.Youtube = google.youtube({ version: 'v3', auth: process.env.YOUTUBE_TOKEN})
+
+  private voiceConnection: VoiceConnection = null
   private voiceChannel: VoiceBasedChannel
-  private queue: Track[] = []
-  private playList: string = ''
   private disconTimer = null
 
+  public player: AudioPlayer
+  private queue: Track[] = []
+  private playList: string = ''
+
   constructor(private client: Client) {
+
     this.player = createAudioPlayer({
       behaviors: {
-        noSubscriber: NoSubscriberBehavior.Pause,
+        noSubscriber: NoSubscriberBehavior.Stop,
       },
     });
     this.player.on('stateChange', (oldState: AudioPlayerState, newState: AudioPlayerState) => {
@@ -46,28 +56,61 @@ export class Music implements MusicInterface {
       this.makeAudioResource()
     });
 
-    this.client.on('voiceStateUpdate', this.voiceStateUpdateHandler);
   }
 
   public async play(prompt: string, voiceChannel: VoiceBasedChannel): Promise<string> {
     console.log('Зажигаю...', prompt)
     try {
       this.connection(voiceChannel)
-      const track: Track = await this.getTrackInfo(prompt)
+      await this.promptParse(prompt)
       if (this.player.state.status === AudioPlayerStatus.Idle) {
         await this.makeAudioResource()
       }
-      return track.title
+      return 'placeholder'
     } catch (error) {
       throw error
     }
   }
 
-  private async getTrackInfo(prompt): Promise<Track> {
+  public clearQueue() {
+    this.queue = []
+  }
+  public renderQueue() {
+    return `
+      ${this.queue.map((item, i) => {
+        return `${i++} [${item.title}](<${item.url}>)`
+      }).join('\n')}
+    `
+  }
+
+  private async promptParse(prompt) {
+    let url: URL
     try {
-      const info: ytdl.videoInfo = await ytdl.getBasicInfo(prompt)
-      this.queue.push(info.videoDetails);
-      return info.videoDetails
+      url = new URL(prompt)
+    } catch (e) {
+      url = null
+    }
+    if (url) {
+      const query: URLSearchParams = url.searchParams
+      if (query.has('list')) {
+        const { data } = await this.ytapi.playlistItems.list({
+          part: ['snippet'],
+          playlistId: query.get('list'),
+          maxResults: 10
+        })
+        data.items.forEach(item => {
+          this.queue.push({ url: `https://youtu.be/${item.snippet.resourceId.videoId}`, title: item.snippet.title })
+        })
+      } else return await this.getTrackInfo(url.href)
+    } else {
+      // нету урла, поиск по промпту
+    }
+  }
+
+  private async getTrackInfo(href: string) {
+    try {
+      const { videoDetails }: ytdl.videoInfo = await ytdl.getBasicInfo(href)
+      this.queue.push({url: videoDetails.video_url, title: videoDetails.title});
     } catch (error) {
       throw error
     }
@@ -76,7 +119,7 @@ export class Music implements MusicInterface {
   private makeAudioResource (): Promise<AudioResource> {
     return new Promise(async (resolve, reject) => {
       const track: Track = this.queue.shift()
-      const ytdlStream = ytdl(track.video_url, { filter: 'audioonly' })
+      const ytdlStream = ytdl(track.url, { filter: 'audioonly' })
       const resource: AudioResource = createAudioResource(ytdlStream, {
         inputType: StreamType.WebmOpus,
         inlineVolume: true,
@@ -98,18 +141,15 @@ export class Music implements MusicInterface {
     });
     this.voiceConnection.subscribe(this.player)
   }
-  private disconnection() {
-    this.voiceConnection.destroy();
-  }
-  private voiceStateUpdateHandler = (oldState: VoiceState, newState: VoiceState) => {
-    const currentChannelId = this.voiceConnection?.joinConfig.channelId
-    if (!currentChannelId) return
+  private voiceStateUpdateHandler = () => {
+    if (!this.voiceConnection) return
     if (this.voiceChannel.members.size === 1 && this.disconTimer === null) this.disconTimer = setTimeout(() => {
-        this.disconnection()
-        this.queue = []
-        this.playList = ''
-        this.disconTimer = null
-      }, (2 * 60) * 1000);
+      this.voiceConnection.destroy();
+      this.queue = []
+      this.playList = ''
+      this.disconTimer = null
+      this.voiceConnection = null
+    }, (2 * 60) * 1000);
     else {
       clearTimeout(this.disconTimer)
       this.disconTimer = null

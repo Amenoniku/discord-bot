@@ -55,6 +55,15 @@ export class Bot implements BotInterface {
           await this.loadingOn(message, 'понял, принял...')
           this.music.player.stop()
           break
+        case 'q':
+          await this.loadingOn(message, 'понял, принял...')
+          message.reply(this.music.renderQueue())
+          break
+        case 'заебал':
+          await message.reply('понял, принял...')
+          this.music.player.stop()
+          this.music.clearQueue()
+          break
 
         // chatgpt обращения
         case 'контекст': message.reply(JSON.stringify(this.ai.context)); break

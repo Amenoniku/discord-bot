@@ -17,6 +17,7 @@
   "author": "Ame",
   "license": "ISC",
   "devDependencies": {
+    "dotenv": "^16.4.5",
     "nodemon": "^3.1.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5"
@@ -24,8 +25,7 @@
   "dependencies": {
     "@discordjs/opus": "^0.9.0",
     "@discordjs/voice": "^0.16.1",
-    "discord.js": "^14.14.1",
-    "dotenv": "^16.4.5",
+    "discord.js": "^14.12.1",
     "gpt-3-encoder": "^1.1.4",
     "libsodium-wrappers": "^0.7.13",
     "openai": "^4.38.1",

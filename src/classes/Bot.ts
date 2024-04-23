@@ -40,7 +40,8 @@ export class Bot implements BotInterface {
         // Музыкальные обращения
         case 'g':
           await this.loadingOn(message, 'ща запою...')
-          this.music.play(xTrim(messageToBot, 'g'), message.member.voice.channel)
+          const track = await this.music.play(xTrim(messageToBot, 'g'), message.member.voice.channel)
+          message.reply(JSON.stringify(track))
           break
         case 'падажжи':
           await this.loadingOn(message, 'окей бро, притормаживаю...')
@@ -49,6 +50,10 @@ export class Bot implements BotInterface {
         case 'погнали':
           await this.loadingOn(message, 'продолжаем...')
           this.music.player.unpause()
+          break
+        case 'хорош':
+          await this.loadingOn(message, 'понял, принял...')
+          this.music.player.stop()
           break
 
         // chatgpt обращения
@@ -68,7 +73,7 @@ export class Bot implements BotInterface {
           break
       }
     } catch (error) {
-      this.loadingError(error)
+      this.loadingError(error?.message || error)
     } finally {
       this.loadingOff()
     }

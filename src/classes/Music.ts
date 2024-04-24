@@ -2,8 +2,7 @@ require('dotenv').config()
 import { createWriteStream, createReadStream } from "fs";
 import { readdir, unlink } from "node:fs/promises";
 import { join } from "path";
-import * as ytdl from 'ytdl-core';
-// import { messa } from 'discord.js';
+import * as ytdl from '@distube/ytdl-core';
 
 import type { VoiceBasedChannel, Client, TextChannel, Message } from "discord.js"
 import {
@@ -143,15 +142,19 @@ export class Music implements MusicInterface {
         })
       } else return await this.getTrackInfo(url.href)
     } else {
-      const { data } = await this.ytapi.search.list({
-        part: ['snippet'],
-        q: prompt,
-        maxResults: 1,
-        type: ['music']
-      })
-      const searchTrack = data.items[0]
-      if (searchTrack) this.addQueue({ url: `https://youtu.be/${searchTrack.id.videoId}`, title: searchTrack.snippet.title })
-      else throw 'Трек не найден';
+      try {
+        const { data } = await this.ytapi.search.list({
+          part: ['snippet'],
+          q: prompt,
+          maxResults: 1,
+          type: ['music']
+        })
+        const searchTrack = data.items[0]
+        if (searchTrack) this.addQueue({ url: `https://youtu.be/${searchTrack.id.videoId}`, title: searchTrack.snippet.title })
+        else throw 'Трек не найден';
+      } catch (error) {
+        throw 'Трек не найден';
+      }
       
     }
   }
@@ -170,7 +173,13 @@ export class Music implements MusicInterface {
       this.currentTrack = this.queue.shift()
       if (!this.currentTrack) return reject('Нету трека')
       const fileName = `resources/${`${Math.random()}`.replace('0.', '')}.webm`
-      const ytdlStream = ytdl(this.currentTrack.url.trim(), { filter: 'audioonly' }).pipe(createWriteStream(fileName))
+      let ytdlStream
+      try {
+        ytdlStream = ytdl(this.currentTrack.url.trim(), { filter: 'audioonly' })
+      } catch (error) {
+        throw reject(error);
+      }
+      ytdlStream.pipe(createWriteStream(fileName))
       ytdlStream.on('finish', () => {
         const resource: AudioResource = createAudioResource(createReadStream(fileName), {
           inputType: StreamType.WebmOpus,

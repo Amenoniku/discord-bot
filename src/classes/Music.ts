@@ -1,4 +1,5 @@
 require('dotenv').config()
+import { createWriteStream, createReadStream, unlink } from "fs";
 import * as ytdl from 'ytdl-core';
 // import { messa } from 'discord.js';
 
@@ -54,6 +55,10 @@ export class Music implements MusicInterface {
     this.player.on('stateChange', (oldState: AudioPlayerState, newState: AudioPlayerState) => {
       if (oldState.status === AudioPlayerStatus.Playing && newState.status === AudioPlayerStatus.Idle) {
         this.currentTrack = null
+        unlink('resources/*', (err) => {
+          if (err) throw err;
+          console.log('resources/* was deleted');
+        })
         if (this.queue[0]) this.makeAudioResource()
         else this.playListMessage.delete()
       }
@@ -150,15 +155,18 @@ export class Music implements MusicInterface {
     return new Promise(async (resolve, reject) => {
       this.currentTrack = this.queue.shift()
       if (!this.currentTrack) return reject('Нету трека')
-      const ytdlStream = ytdl(this.currentTrack.url, { filter: 'audioonly' })
-      const resource: AudioResource = createAudioResource(ytdlStream, {
-        inputType: StreamType.WebmOpus,
-        inlineVolume: true,
+      const fileName = `resources/${`${Math.random()}`.replace('0.', '')}.webm`
+      const ytdlStream = ytdl(this.currentTrack.url.trim(), { filter: 'audioonly' }).pipe(createWriteStream(fileName))
+      ytdlStream.on('finish', () => {
+        const resource: AudioResource = createAudioResource(createReadStream(fileName), {
+          inputType: StreamType.WebmOpus,
+          inlineVolume: true,
+        });
+        this.player.play(resource)
+        this.renderQueue()
+        resolve(resource)
       });
-      ytdlStream.on('error', err => reject(err));
-      this.player.play(resource)
-      this.renderQueue()
-      resolve(resource)
+      ytdlStream.on('error', err => reject(err))
     })
   }
 

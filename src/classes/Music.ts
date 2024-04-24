@@ -1,5 +1,7 @@
 require('dotenv').config()
-import { createWriteStream, createReadStream, unlink } from "fs";
+import { createWriteStream, createReadStream } from "fs";
+import { readdir, unlink } from "node:fs/promises";
+import { join } from "path";
 import * as ytdl from 'ytdl-core';
 // import { messa } from 'discord.js';
 
@@ -52,13 +54,12 @@ export class Music implements MusicInterface {
         noSubscriber: NoSubscriberBehavior.Stop,
       },
     });
-    this.player.on('stateChange', (oldState: AudioPlayerState, newState: AudioPlayerState) => {
+    this.player.on('stateChange', async (oldState: AudioPlayerState, newState: AudioPlayerState) => {
       if (oldState.status === AudioPlayerStatus.Playing && newState.status === AudioPlayerStatus.Idle) {
         this.currentTrack = null
-        unlink('resources/*', (err) => {
-          if (err) throw err;
-          console.log('resources/* was deleted');
-        })
+        for (const file of await readdir('resources')) {
+          await unlink(join('resources/', file));
+        }
         if (this.queue[0]) this.makeAudioResource()
         else this.playListMessage.delete()
       }

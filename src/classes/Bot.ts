@@ -38,9 +38,11 @@ export class Bot implements BotInterface {
       switch (messageToBot.match(/^\S+/)?.[0]) {
 
         // Музыкальные обращения
-        case 'g':
-          await this.loadingOn(message, 'ща запою...')
-          await this.music.play(xTrim(messageToBot, 'g'), message.member.voice.channel, message.channel as TextChannel)
+        case 'го':
+        case 'плэй':
+        case 'ебашь':
+          await this.loadingOn(message, 'гружу трек...')
+          await this.music.play(xTrim(messageToBot, 1), message.member.voice.channel, message.channel as TextChannel)
           break
         case 'падажжи':
           await this.loadingOn(message, 'окей бро, притормаживаю...')
@@ -55,9 +57,6 @@ export class Bot implements BotInterface {
           message.reply(this.music.skip())
           break
         case 'хорош':
-          await this.loadingOn(message, 'понял, принял...')
-          this.music.player.stop()
-          break
         case 'заебал':
           await message.reply('понял, принял...')
           this.music.player.stop()

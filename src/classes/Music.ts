@@ -45,7 +45,7 @@ export class Music implements MusicInterface {
   public player: AudioPlayer
   private queue: Track[] = []
   private currentTrack: Track
-  private playListMessage: Message
+  private playListMessage: Message = null
 
   constructor(private client: Client) {
 
@@ -78,6 +78,7 @@ export class Music implements MusicInterface {
       this.connection(voiceChannel)
       this.textChannel = textChannel
       await this.promptParse(prompt)
+      if (this.currentTrack) this.renderQueue()
       if (this.player.state.status === AudioPlayerStatus.Idle) await this.makeAudioResource()
     } catch (error) {
       throw error
@@ -100,7 +101,10 @@ export class Music implements MusicInterface {
     this.queue = []
   }
   public async renderQueue() {
-    if (this.playListMessage) this.playListMessage.delete()
+    if (this.playListMessage) {
+      this.playListMessage.delete()
+      this.playListMessage = null
+    }
     const shownTracks = 3
     const limit = (shownTracks * 2);
     let playlistText = ''

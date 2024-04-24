@@ -1,5 +1,8 @@
-export function xTrim(str: string, word: string = ''): string {
-  return str.replace(word, '').trim()
+export function xTrim(str: string, word: string | number = ''): string {
+  if (typeof word === 'string') return str.replace(word, '').trim()
+  if (typeof word === 'number') return str.split(' ')
+    .filter((w, i) => i >= word )
+    .join(' ');
 }
 
 export function cutMessage(message: string = '', maxLength: number): string[] {

@@ -1,5 +1,5 @@
 import { Events } from "discord.js"
-import type { Message, Client } from "discord.js"
+import type { Message, Client, TextChannel } from "discord.js"
 
 import { AI } from "./AI";
 import { Music } from "./Music";
@@ -40,8 +40,7 @@ export class Bot implements BotInterface {
         // Музыкальные обращения
         case 'g':
           await this.loadingOn(message, 'ща запою...')
-          const queue = await this.music.play(xTrim(messageToBot, 'g'), message.member.voice.channel)
-          message.reply(queue)
+          await this.music.play(xTrim(messageToBot, 'g'), message.member.voice.channel, message.channel as TextChannel)
           break
         case 'падажжи':
           await this.loadingOn(message, 'окей бро, притормаживаю...')
@@ -51,13 +50,13 @@ export class Bot implements BotInterface {
           await this.loadingOn(message, 'продолжаем...')
           this.music.player.unpause()
           break
+        case 'скип':
+          await this.loadingOn(message, 'ок, скипаю...')
+          message.reply(this.music.skip())
+          break
         case 'хорош':
           await this.loadingOn(message, 'понял, принял...')
           this.music.player.stop()
-          break
-        case 'q':
-          await this.loadingOn(message, 'понял, принял...')
-          message.reply(this.music.renderQueue())
           break
         case 'заебал':
           await message.reply('понял, принял...')

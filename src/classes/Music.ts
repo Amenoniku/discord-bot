@@ -1,6 +1,8 @@
 require('dotenv').config()
 import * as ytdl from 'ytdl-core';
-import type { VoiceBasedChannel, Client } from "discord.js"
+// import { messa } from 'discord.js';
+
+import type { VoiceBasedChannel, Client, TextChannel, Message } from "discord.js"
 import {
   joinVoiceChannel,
   VoiceConnection,
@@ -17,9 +19,10 @@ import { google, youtube_v3 } from 'googleapis';
 
 interface MusicInterface {
   player: AudioPlayer
+  skip(): void
   clearQueue(): void
   renderQueue(): void
-  play(prompt: string, voiceChannel: VoiceBasedChannel): Promise<string>
+  play(prompt: string, voiceChannel: VoiceBasedChannel, textChannel: TextChannel): Promise<void>
 }
 
 type Track = {
@@ -31,6 +34,7 @@ export class Music implements MusicInterface {
 
   private ytapi: youtube_v3.Youtube = google.youtube({ version: 'v3', auth: process.env.YOUTUBE_TOKEN})
 
+  private textChannel: TextChannel
   private voiceConnection: VoiceConnection = null
   private voiceChannel: VoiceBasedChannel
   private disconTimer = null
@@ -38,6 +42,7 @@ export class Music implements MusicInterface {
   public player: AudioPlayer
   private queue: Track[] = []
   private currentTrack: Track
+  private playListMessage: Message
 
   constructor(private client: Client) {
 
@@ -48,7 +53,9 @@ export class Music implements MusicInterface {
     });
     this.player.on('stateChange', (oldState: AudioPlayerState, newState: AudioPlayerState) => {
       if (oldState.status === AudioPlayerStatus.Playing && newState.status === AudioPlayerStatus.Idle) {
+        this.currentTrack = null
         if (this.queue[0]) this.makeAudioResource()
+        else this.playListMessage.delete()
       }
     });
     this.player.on('error', error => {
@@ -59,27 +66,38 @@ export class Music implements MusicInterface {
     this.client.on('voiceStateUpdate', this.voiceStateUpdateHandler)
   }
 
-  public async play(prompt: string, voiceChannel: VoiceBasedChannel): Promise<string> {
+  public async play(prompt: string, voiceChannel: VoiceBasedChannel, textChannel: TextChannel): Promise<void> {
     console.log('Зажигаю...', prompt)
     try {
       this.connection(voiceChannel)
+      this.textChannel = textChannel
       await this.promptParse(prompt)
-      if (this.player.state.status === AudioPlayerStatus.Idle) {
-        await this.makeAudioResource()
-      }
-      return this.renderQueue()
+      if (this.player.state.status === AudioPlayerStatus.Idle) await this.makeAudioResource()
     } catch (error) {
       throw error
     }
   }
 
+  public skip() {
+    if (this.currentTrack === null) return 'Нечего скипать'
+    const track: string = `Скипнул трек: [${this.currentTrack.title}](<${this.currentTrack.url}>)`
+    this.player.stop()
+    return track
+  }
+
+  private addQueue(track: Track) {
+    const maxQueue = 200
+    if ((this.queue.length + 1) < maxQueue ) this.queue.push(track)
+  }
+
   public clearQueue() {
     this.queue = []
   }
-  public renderQueue() {
-    const shownTracks = 2
+  public async renderQueue() {
+    if (this.playListMessage) this.playListMessage.delete()
+    const shownTracks = 3
     const limit = (shownTracks * 2);
-    let messageText = ''
+    let playlistText = ''
     const mapper = (arr: Track[], isLast: boolean = false): string => arr
       .map((item, i) => `${i + (
         isLast
@@ -90,9 +108,9 @@ export class Music implements MusicInterface {
     if (this.queue.length > limit) {
       const firstChunk = this.queue.slice(0, shownTracks);
       const lastChunk = this.queue.slice(-shownTracks);
-      messageText = `${mapper(firstChunk)}\n...\n${mapper(lastChunk, true)}`
-    } else messageText = mapper(this.queue)
-    return `\`\`\`Играет: ${this.currentTrack.title}\n\nПлейлист:\n${messageText}\`\`\``
+      playlistText = `${mapper(firstChunk)}\n...\n${mapper(lastChunk, true)}`
+    } else playlistText = mapper(this.queue)
+    this.playListMessage = await this.textChannel.send(`\`\`\`Играет: ${this.currentTrack.title}${playlistText ? `\n\nПлейлист:\n${playlistText}` : ''}\`\`\``)
   }
 
   private async promptParse(prompt) {
@@ -108,10 +126,10 @@ export class Music implements MusicInterface {
         const { data } = await this.ytapi.playlistItems.list({
           part: ['snippet'],
           playlistId: query.get('list'),
-          maxResults: 10
+          maxResults: 50
         })
         data.items.forEach(item => {
-          this.queue.push({ url: `https://youtu.be/${item.snippet.resourceId.videoId}`, title: item.snippet.title })
+          this.addQueue({ url: `https://youtu.be/${item.snippet.resourceId.videoId}`, title: item.snippet.title })
         })
       } else return await this.getTrackInfo(url.href)
     } else {
@@ -122,7 +140,7 @@ export class Music implements MusicInterface {
   private async getTrackInfo(href: string) {
     try {
       const { videoDetails }: ytdl.videoInfo = await ytdl.getBasicInfo(href)
-      this.queue.push({url: videoDetails.video_url, title: videoDetails.title});
+      this.addQueue({url: videoDetails.video_url, title: videoDetails.title});
     } catch (error) {
       throw error
     }
@@ -131,6 +149,7 @@ export class Music implements MusicInterface {
   private makeAudioResource (): Promise<AudioResource> {
     return new Promise(async (resolve, reject) => {
       this.currentTrack = this.queue.shift()
+      if (!this.currentTrack) return reject('Нету трека')
       const ytdlStream = ytdl(this.currentTrack.url, { filter: 'audioonly' })
       const resource: AudioResource = createAudioResource(ytdlStream, {
         inputType: StreamType.WebmOpus,
@@ -138,6 +157,7 @@ export class Music implements MusicInterface {
       });
       ytdlStream.on('error', err => reject(err));
       this.player.play(resource)
+      this.renderQueue()
       resolve(resource)
     })
   }

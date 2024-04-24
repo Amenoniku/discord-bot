@@ -139,7 +139,16 @@ export class Music implements MusicInterface {
         })
       } else return await this.getTrackInfo(url.href)
     } else {
-      // нету урла, поиск по промпту
+      const { data } = await this.ytapi.search.list({
+        part: ['snippet'],
+        q: prompt,
+        maxResults: 1,
+        type: ['music']
+      })
+      const searchTrack = data.items[0]
+      if (searchTrack) this.addQueue({ url: `https://youtu.be/${searchTrack.id.videoId}`, title: searchTrack.snippet.title })
+      else throw 'Трек не найден';
+      
     }
   }
 
@@ -185,6 +194,7 @@ export class Music implements MusicInterface {
   private voiceStateUpdateHandler = () => {
     if (!this.voiceConnection) return
     if (this.voiceChannel.members.size === 1 && this.disconTimer === null) this.disconTimer = setTimeout(() => {
+      this.player.stop()
       this.voiceConnection.destroy();
       this.queue = []
       this.disconTimer = null

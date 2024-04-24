@@ -40,8 +40,8 @@ export class Bot implements BotInterface {
         // Музыкальные обращения
         case 'g':
           await this.loadingOn(message, 'ща запою...')
-          const track = await this.music.play(xTrim(messageToBot, 'g'), message.member.voice.channel)
-          message.reply(JSON.stringify(track))
+          const queue = await this.music.play(xTrim(messageToBot, 'g'), message.member.voice.channel)
+          message.reply(queue)
           break
         case 'падажжи':
           await this.loadingOn(message, 'окей бро, притормаживаю...')

@@ -37,7 +37,7 @@ export class Music implements MusicInterface {
 
   public player: AudioPlayer
   private queue: Track[] = []
-  private playList: string = ''
+  private currentTrack: Track
 
   constructor(private client: Client) {
 
@@ -56,6 +56,7 @@ export class Music implements MusicInterface {
       this.makeAudioResource()
     });
 
+    this.client.on('voiceStateUpdate', this.voiceStateUpdateHandler)
   }
 
   public async play(prompt: string, voiceChannel: VoiceBasedChannel): Promise<string> {
@@ -66,7 +67,7 @@ export class Music implements MusicInterface {
       if (this.player.state.status === AudioPlayerStatus.Idle) {
         await this.makeAudioResource()
       }
-      return 'placeholder'
+      return this.renderQueue()
     } catch (error) {
       throw error
     }
@@ -76,11 +77,22 @@ export class Music implements MusicInterface {
     this.queue = []
   }
   public renderQueue() {
-    return `
-      ${this.queue.map((item, i) => {
-        return `${i++} [${item.title}](<${item.url}>)`
-      }).join('\n')}
-    `
+    const shownTracks = 2
+    const limit = (shownTracks * 2);
+    let messageText = ''
+    const mapper = (arr: Track[], isLast: boolean = false): string => arr
+      .map((item, i) => `${i + (
+        isLast
+          ? (this.queue.length - shownTracks) + 1
+          : 1
+      )}. ${item.title}`)
+      .join('\n')
+    if (this.queue.length > limit) {
+      const firstChunk = this.queue.slice(0, shownTracks);
+      const lastChunk = this.queue.slice(-shownTracks);
+      messageText = `${mapper(firstChunk)}\n...\n${mapper(lastChunk, true)}`
+    } else messageText = mapper(this.queue)
+    return `\`\`\`Играет: ${this.currentTrack.title}\n\nПлейлист:\n${messageText}\`\`\``
   }
 
   private async promptParse(prompt) {
@@ -118,8 +130,8 @@ export class Music implements MusicInterface {
 
   private makeAudioResource (): Promise<AudioResource> {
     return new Promise(async (resolve, reject) => {
-      const track: Track = this.queue.shift()
-      const ytdlStream = ytdl(track.url, { filter: 'audioonly' })
+      this.currentTrack = this.queue.shift()
+      const ytdlStream = ytdl(this.currentTrack.url, { filter: 'audioonly' })
       const resource: AudioResource = createAudioResource(ytdlStream, {
         inputType: StreamType.WebmOpus,
         inlineVolume: true,
@@ -146,7 +158,6 @@ export class Music implements MusicInterface {
     if (this.voiceChannel.members.size === 1 && this.disconTimer === null) this.disconTimer = setTimeout(() => {
       this.voiceConnection.destroy();
       this.queue = []
-      this.playList = ''
       this.disconTimer = null
       this.voiceConnection = null
     }, (2 * 60) * 1000);

@@ -32,6 +32,11 @@ type Track = {
   title: string
 }
 
+type Error<T> = {
+  message: T;
+  [key: string]: T;
+};
+
 export class Music implements MusicInterface {
 
   private ytapi: youtube_v3.Youtube = google.youtube({ version: 'v3', auth: process.env.YOUTUBE_TOKEN})
@@ -50,22 +55,17 @@ export class Music implements MusicInterface {
 
     this.player = createAudioPlayer({
       behaviors: {
-        noSubscriber: NoSubscriberBehavior.Stop,
+        noSubscriber: NoSubscriberBehavior.Pause,
       },
     });
     this.player.on('stateChange', async (oldState: AudioPlayerState, newState: AudioPlayerState) => {
       if (oldState.status === AudioPlayerStatus.Playing && newState.status === AudioPlayerStatus.Idle) {
-        this.currentTrack = null
-        for (const file of await readdir('resources')) {
-          await unlink(join('resources/', file));
-        }
-        if (this.queue[0]) this.makeAudioResource()
-        else this.playListMessage.delete()
+        this.playing()
       }
     });
     this.player.on('error', error => {
       console.error(`Error: ${error.message} with resource ${error.resource.metadata}`);
-      this.makeAudioResource()
+      this.playing()
     });
 
     this.client.on('voiceStateUpdate', this.voiceStateUpdateHandler)
@@ -73,12 +73,13 @@ export class Music implements MusicInterface {
 
   public async play(prompt: string, voiceChannel: VoiceBasedChannel, textChannel: TextChannel): Promise<void> {
     console.log('Зажигаю...', prompt)
+    if (!prompt.trim()) throw "Ты, другалек, нечего не написал... Что мне играть то?"
     try {
       this.connection(voiceChannel)
       this.textChannel = textChannel
       await this.promptParse(prompt)
       if (this.currentTrack) this.renderQueue()
-      if (this.player.state.status === AudioPlayerStatus.Idle) await this.makeAudioResource()
+      if (this.player.state.status === AudioPlayerStatus.Idle) await this.playing()
     } catch (error) {
       throw error
     }
@@ -94,6 +95,7 @@ export class Music implements MusicInterface {
   private addQueue(track: Track) {
     const maxQueue = 200
     if ((this.queue.length + 1) < maxQueue ) this.queue.push(track)
+    else throw `Больше ${maxQueue} треков низя!`
   }
 
   public clearQueue() {
@@ -129,42 +131,75 @@ export class Music implements MusicInterface {
     } catch (e) {
       url = null
     }
-    if (url) {
-      const query: URLSearchParams = url.searchParams
-      if (query.has('list')) {
-        const { data } = await this.ytapi.playlistItems.list({
-          part: ['snippet'],
-          playlistId: query.get('list'),
-          maxResults: 50
-        })
-        data.items.forEach(item => {
-          this.addQueue({ url: `https://youtu.be/${item.snippet.resourceId.videoId}`, title: item.snippet.title })
-        })
-      } else return await this.getTrackInfo(url.href)
-    } else {
-      try {
+    try {
+      if (url) {
+        const query: URLSearchParams = url.searchParams
+        if (query.has('list')) {
+          const { data } = await this.ytapi.playlistItems.list({
+            part: ['snippet'],
+            playlistId: query.get('list'),
+            maxResults: 50
+          })
+          data.items.forEach(item => {
+            this.addQueue({ url: `https://youtu.be/${item.snippet.resourceId.videoId}`, title: item.snippet.title })
+          })
+        } else await this.getTrackInfo(url.href)
+      } else {
         const { data } = await this.ytapi.search.list({
           part: ['snippet'],
           q: prompt,
           maxResults: 1,
-          type: ['music']
+          safeSearch: 'strict',
+          type: ['video'],
+          videoCategoryId: '10',
+          videoSyndicated: 'true'
         })
-        const searchTrack = data.items[0]
-        if (searchTrack) this.addQueue({ url: `https://youtu.be/${searchTrack.id.videoId}`, title: searchTrack.snippet.title })
-        else throw 'Трек не найден';
-      } catch (error) {
-        throw 'Трек не найден';
+        let errCount = 0
+        for (const item of data.items) {
+          if (!item.id?.videoId) continue
+          // try {
+          const videoDetails = await this.getTrackInfo(item.id.videoId)
+          if (errCount) this.textChannel.send(`После ${errCount} попыток скачать трек, счакалось это [${videoDetails.title}](<${videoDetails.video_url}>)`)
+          break
+          // } catch (error) {
+          //   errCount++
+          // }
+        }
       }
-      
+    } catch (error) {
+      throw error.message ? this.getYtdlError(prompt, error) : error
     }
+  }
+
+  private getYtdlError(prompt: string, reason: Error<string>): string {
+    return `Ютуб не дает скачать <${prompt}>, можешь [поискать](<https://www.youtube.com/results?search_query=${encodeURIComponent(prompt)}>) другую версию. Причина: ${reason.message || reason}`
   }
 
   private async getTrackInfo(href: string) {
     try {
       const { videoDetails }: ytdl.videoInfo = await ytdl.getBasicInfo(href)
-      this.addQueue({url: videoDetails.video_url, title: videoDetails.title});
+      this.addQueue({url: videoDetails.video_url, title: videoDetails.title})
+      return videoDetails
     } catch (error) {
       throw error
+    }
+  }
+
+  private async playing() {
+    if (this.queue[0]) {
+      for (const file of await readdir('resources')) {
+        await unlink(join('resources/', file));
+      }
+      try {
+        return await this.makeAudioResource()
+      } catch (error) {
+        await this.textChannel.send(this.getYtdlError(this.currentTrack?.title, error))
+        await this.playing()
+      }
+    }
+    else if (this.queue.length === 0 && this.playListMessage) {
+      await this.playListMessage.delete()
+      this.playListMessage = null
     }
   }
 
@@ -173,12 +208,7 @@ export class Music implements MusicInterface {
       this.currentTrack = this.queue.shift()
       if (!this.currentTrack) return reject('Нету трека')
       const fileName = `resources/${`${Math.random()}`.replace('0.', '')}.webm`
-      let ytdlStream
-      try {
-        ytdlStream = ytdl(this.currentTrack.url.trim(), { filter: 'audioonly' })
-      } catch (error) {
-        throw reject(error);
-      }
+      const ytdlStream = ytdl(this.currentTrack.url.trim(), { filter: 'audioonly' })
       ytdlStream.pipe(createWriteStream(fileName))
       ytdlStream.on('finish', () => {
         const resource: AudioResource = createAudioResource(createReadStream(fileName), {

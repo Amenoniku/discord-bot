@@ -138,7 +138,7 @@ export class Music implements MusicInterface {
       if (url) {
         const query: URLSearchParams = url.searchParams
         if (query.has('list')) {
-          this.getYtList(query.get('list'))
+          await this.getYtList(query.get('list'))
         } else await this.getTrackInfo(url.href)
       } else {
         if (/--лист$/.test(prompt)) {
@@ -182,14 +182,18 @@ export class Music implements MusicInterface {
     }
   }
   private async getYtList(id: string) {
-    const { data } = await this.ytapi.playlistItems.list({
-      part: ['snippet'],
-      playlistId: id,
-      maxResults: 50
-    })
-    data.items.forEach(item => {
-      this.addQueue({ url: `https://youtu.be/${item.snippet.resourceId.videoId}`, title: item.snippet.title })
-    })
+    try {
+      const { data } = await this.ytapi.playlistItems.list({
+        part: ['snippet'],
+        playlistId: id,
+        maxResults: 50
+      })
+      data.items.forEach(item => {
+        this.addQueue({ url: `https://youtu.be/${item.snippet.resourceId.videoId}`, title: item.snippet.title })
+      })
+    } catch (error) {
+      throw error
+    }
   }
 
   private getYtdlError(prompt: string, reason: Error<string>): string {

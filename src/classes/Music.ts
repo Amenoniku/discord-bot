@@ -19,6 +19,7 @@ import {
 import { google, youtube_v3 } from 'googleapis';
 
 import { playList } from "../embeds/PlayList";
+import { xTrim } from "../utils";
 
 interface MusicInterface {
   player: AudioPlayer
@@ -143,7 +144,7 @@ export class Music implements MusicInterface {
         if (/--лист$/.test(prompt)) {
           const { data } = await this.ytapi.search.list({
             part: ['snippet'],
-            q: prompt,
+            q: xTrim(prompt, '--лист'),
             maxResults: 1,
             safeSearch: 'strict',
             type: ['playlist']

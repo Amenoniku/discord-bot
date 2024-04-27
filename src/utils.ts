@@ -2,7 +2,8 @@ export function xTrim(str: string, word: string | number = ''): string {
   if (typeof word === 'string') return str.replace(word, '').trim()
   if (typeof word === 'number') return str.split(' ')
     .filter((w, i) => i >= word )
-    .join(' ');
+    .join(' ')
+    .trim()
 }
 
 export function cutMessage(message: string = '', maxLength: number): string[] {

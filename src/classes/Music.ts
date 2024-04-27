@@ -3,8 +3,7 @@ import { createWriteStream, createReadStream } from "fs";
 import { readdir, unlink } from "node:fs/promises";
 import { join } from "path";
 import * as ytdl from '@distube/ytdl-core';
-
-import type { VoiceBasedChannel, Client, TextChannel, Message } from "discord.js"
+import type { VoiceBasedChannel, Client, TextChannel, Message, EmbedBuilder } from "discord.js"
 import {
   joinVoiceChannel,
   VoiceConnection,
@@ -18,6 +17,8 @@ import {
   StreamType,
 } from "@discordjs/voice"
 import { google, youtube_v3 } from 'googleapis';
+
+import { playList } from "../embeds/PlayList";
 
 interface MusicInterface {
   player: AudioPlayer
@@ -73,7 +74,8 @@ export class Music implements MusicInterface {
 
   public async play(prompt: string, voiceChannel: VoiceBasedChannel, textChannel: TextChannel): Promise<void> {
     console.log('Зажигаю...', prompt)
-    if (!prompt.trim()) throw "Ты, другалек, нечего не написал... Что мне играть то?"
+    // textChannel.send({ embeds: [playList] })
+    if (!prompt.trim()) throw "Ты, другалек, нечего не написал... Чё мне играть то?"
     try {
       this.connection(voiceChannel)
       this.textChannel = textChannel
@@ -135,40 +137,58 @@ export class Music implements MusicInterface {
       if (url) {
         const query: URLSearchParams = url.searchParams
         if (query.has('list')) {
-          const { data } = await this.ytapi.playlistItems.list({
-            part: ['snippet'],
-            playlistId: query.get('list'),
-            maxResults: 50
-          })
-          data.items.forEach(item => {
-            this.addQueue({ url: `https://youtu.be/${item.snippet.resourceId.videoId}`, title: item.snippet.title })
-          })
+          this.getYtList(query.get('list'))
         } else await this.getTrackInfo(url.href)
       } else {
-        const { data } = await this.ytapi.search.list({
-          part: ['snippet'],
-          q: prompt,
-          maxResults: 1,
-          safeSearch: 'strict',
-          type: ['video'],
-          videoCategoryId: '10',
-          videoSyndicated: 'true'
-        })
-        let errCount = 0
-        for (const item of data.items) {
-          if (!item.id?.videoId) continue
-          // try {
-          const videoDetails = await this.getTrackInfo(item.id.videoId)
-          if (errCount) this.textChannel.send(`После ${errCount} попыток скачать трек, счакалось это [${videoDetails.title}](<${videoDetails.video_url}>)`)
-          break
-          // } catch (error) {
-          //   errCount++
-          // }
+        if (/--лист$/.test(prompt)) {
+          const { data } = await this.ytapi.search.list({
+            part: ['snippet'],
+            q: prompt,
+            maxResults: 1,
+            safeSearch: 'strict',
+            type: ['playlist']
+          })
+          if (data.items[0]) await this.getYtList(data.items[0].id.playlistId)
+          else throw 'Нету плэйлиста'
         }
+        else await this.getYtTrack(prompt)
       }
     } catch (error) {
       throw error.message ? this.getYtdlError(prompt, error) : error
     }
+  }
+
+  private async getYtTrack(q) {
+    const { data } = await this.ytapi.search.list({
+      part: ['snippet'],
+      q,
+      maxResults: 1,
+      safeSearch: 'strict',
+      type: ['video'],
+      videoCategoryId: '10',
+      videoSyndicated: 'true'
+    })
+    let errCount = 0
+    for (const item of data.items) {
+      if (!item.id?.videoId) continue
+      // try {
+      const videoDetails = await this.getTrackInfo(item.id.videoId)
+      if (errCount) this.textChannel.send(`После ${errCount} попыток скачать трек, счакалось это [${videoDetails.title}](<${videoDetails.video_url}>)`)
+      break
+      // } catch (error) {
+      //   errCount++
+      // }
+    }
+  }
+  private async getYtList(id: string) {
+    const { data } = await this.ytapi.playlistItems.list({
+      part: ['snippet'],
+      playlistId: id,
+      maxResults: 50
+    })
+    data.items.forEach(item => {
+      this.addQueue({ url: `https://youtu.be/${item.snippet.resourceId.videoId}`, title: item.snippet.title })
+    })
   }
 
   private getYtdlError(prompt: string, reason: Error<string>): string {

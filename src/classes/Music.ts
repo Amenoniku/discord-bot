@@ -75,7 +75,6 @@ export class Music implements MusicInterface {
 
   public async play(prompt: string, voiceChannel: VoiceBasedChannel, textChannel: TextChannel): Promise<void> {
     console.log('Зажигаю...', prompt)
-    // textChannel.send({ embeds: [playList] })
     if (!prompt.trim()) throw "Ты, другалек, нечего не написал... Чё мне играть то?"
     try {
       this.connection(voiceChannel)
@@ -111,20 +110,21 @@ export class Music implements MusicInterface {
     }
     const shownTracks = 3
     const limit = (shownTracks * 2);
-    let playlistText = ''
+    let playlistEmbed = { ...playList }
     const mapper = (arr: Track[], isLast: boolean = false): string => arr
       .map((item, i) => `${i + (
         isLast
           ? (this.queue.length - shownTracks) + 1
           : 1
-      )}. ${item.title}`)
+      )}. [${item.title}](${item.url})`)
       .join('\n')
     if (this.queue.length > limit) {
       const firstChunk = this.queue.slice(0, shownTracks);
       const lastChunk = this.queue.slice(-shownTracks);
-      playlistText = `${mapper(firstChunk)}\n...\n${mapper(lastChunk, true)}`
-    } else playlistText = mapper(this.queue)
-    this.playListMessage = await this.textChannel.send(`\`\`\`Играет: ${this.currentTrack.title}${playlistText ? `\n\nПлейлист:\n${playlistText}` : ''}\`\`\``)
+      playlistEmbed.fields[2].value = `${mapper(firstChunk)}\n...\n${mapper(lastChunk, true)}`
+    } else playlistEmbed.fields[2].value = mapper(this.queue)
+    playlistEmbed.fields[0].value = `[${this.currentTrack.title}](${this.currentTrack.url})`
+    this.playListMessage = await this.textChannel.send({ embeds: [playlistEmbed] })
   }
 
   private async promptParse(prompt: string): Promise<void> {

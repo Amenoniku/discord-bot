@@ -81,7 +81,7 @@ export class Music implements MusicInterface {
       this.connection(voiceChannel)
       this.textChannel = textChannel
       await this.promptParse(prompt)
-      if (this.currentTrack) this.renderQueue()
+      if (this.currentTrack) await this.renderQueue()
       if (this.player.state.status === AudioPlayerStatus.Idle) await this.playing()
     } catch (error) {
       throw error
@@ -104,7 +104,7 @@ export class Music implements MusicInterface {
   public clearQueue() {
     this.queue = []
   }
-  public async renderQueue() {
+  public async renderQueue(): Promise<void> {
     if (this.playListMessage) {
       this.playListMessage.delete()
       this.playListMessage = null
@@ -127,7 +127,7 @@ export class Music implements MusicInterface {
     this.playListMessage = await this.textChannel.send(`\`\`\`Играет: ${this.currentTrack.title}${playlistText ? `\n\nПлейлист:\n${playlistText}` : ''}\`\`\``)
   }
 
-  private async promptParse(prompt) {
+  private async promptParse(prompt: string): Promise<void> {
     let url: URL
     try {
       url = new URL(prompt)
@@ -159,7 +159,7 @@ export class Music implements MusicInterface {
     }
   }
 
-  private async getYtTrack(q) {
+  private async getYtTrack(q: string): Promise<void> {
     const { data } = await this.ytapi.search.list({
       part: ['snippet'],
       q,
@@ -172,16 +172,16 @@ export class Music implements MusicInterface {
     let errCount = 0
     for (const item of data.items) {
       if (!item.id?.videoId) continue
-      // try {
-      const videoDetails = await this.getTrackInfo(item.id.videoId)
-      if (errCount) this.textChannel.send(`После ${errCount} попыток скачать трек, счакалось это [${videoDetails.title}](<${videoDetails.video_url}>)`)
-      break
-      // } catch (error) {
-      //   errCount++
-      // }
+      try {
+        const videoDetails = await this.getTrackInfo(item.id.videoId)
+        if (errCount) await this.textChannel.send(`После ${errCount} попыток скачать трек, счакалось это [${videoDetails.title}](<${videoDetails.video_url}>)`)
+        break
+      } catch (error) {
+        errCount++
+      }
     }
   }
-  private async getYtList(id: string) {
+  private async getYtList(id: string): Promise<void> {
     try {
       const { data } = await this.ytapi.playlistItems.list({
         part: ['snippet'],
@@ -200,7 +200,7 @@ export class Music implements MusicInterface {
     return `Ютуб не дает скачать <${prompt}>, можешь [поискать](<https://www.youtube.com/results?search_query=${encodeURIComponent(prompt)}>) другую версию. Причина: ${reason.message || reason}`
   }
 
-  private async getTrackInfo(href: string) {
+  private async getTrackInfo(href: string): Promise<ytdl.MoreVideoDetails> {
     try {
       const { videoDetails }: ytdl.videoInfo = await ytdl.getBasicInfo(href)
       this.addQueue({url: videoDetails.video_url, title: videoDetails.title})
@@ -210,7 +210,7 @@ export class Music implements MusicInterface {
     }
   }
 
-  private async playing() {
+  private async playing(): Promise<AudioResource> {
     if (this.queue[0]) {
       for (const file of await readdir('resources')) {
         await unlink(join('resources/', file));
@@ -224,6 +224,7 @@ export class Music implements MusicInterface {
     }
     else if (this.queue.length === 0 && this.playListMessage) {
       await this.playListMessage.delete()
+      this.currentTrack = null
       this.playListMessage = null
     }
   }

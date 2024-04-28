@@ -268,6 +268,11 @@ export class Music implements MusicInterface {
       this.queue = []
       this.disconTimer = null
       this.voiceConnection = null
+      if (this.playListMessage) {
+        this.playListMessage.delete()
+        this.currentTrack = null
+        this.playListMessage = null
+      }
     }, (2 * 60) * 1000);
     else {
       clearTimeout(this.disconTimer)

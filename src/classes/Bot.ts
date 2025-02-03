@@ -1,7 +1,7 @@
 import { Events } from "discord.js"
 import type { Message, Client, TextChannel } from "discord.js"
 
-import { AI } from "./AI";
+// import { AI } from "./AI";
 import { Music } from "./Music";
 
 import { xTrim } from "../utils"
@@ -18,14 +18,14 @@ export class Bot implements BotInterface {
   private loading: boolean = false
   private loadingMessage: Message
   private channelId: ChannelId = ''
-  private ai: AI
+  // private ai: AI
   private music: Music
 
   constructor(
     private client: Client,
     private botName: string
   ) {
-    this.ai = new AI()
+    // this.ai = new AI()
     this.music = new Music(client)
   }
 
@@ -64,20 +64,20 @@ export class Bot implements BotInterface {
           break
 
         // chatgpt обращения
-        case 'контекст': message.reply(JSON.stringify(this.ai.context)); break
-        case 'нарисуй':
-          await this.loadingOn(message, 'рисую...')
-          message.reply(await this.ai.draw(xTrim(messageToBot, 'нарисуй')))
-          break
-        case 'тема':
-          this.ai.clearContext()
-          await message.reply('Ааа, ну давай...')
-          break
-        default:
-          await this.loadingOn(message, 'думаю...')
-          const cuttedMessage = await this.ai.think(messageToBot, this.channelId)
-          cuttedMessage.forEach((chunk) => message.reply(chunk))
-          break
+        // case 'контекст': message.reply(JSON.stringify(this.ai.context)); break
+        // case 'нарисуй':
+        //   await this.loadingOn(message, 'рисую...')
+        //   message.reply(await this.ai.draw(xTrim(messageToBot, 'нарисуй')))
+        //   break
+        // case 'тема':
+        //   this.ai.clearContext()
+        //   await message.reply('Ааа, ну давай...')
+        //   break
+        // default:
+        //   await this.loadingOn(message, 'думаю...')
+        //   const cuttedMessage = await this.ai.think(messageToBot, this.channelId)
+        //   cuttedMessage.forEach((chunk) => message.reply(chunk))
+        //   break
       }
     } catch (error) {
       this.loadingError(error?.message || error)

@@ -1,20 +1,5 @@
 import { APIEmbedField, EmbedBuilder } from 'discord.js'
 
-
-  // title?: string;
-  // type?: EmbedType;
-  // description?: string;
-  // url?: string;
-  // timestamp?: string | number | Date;
-  // color?: number;
-  // footer?: EmbedFooterData;
-  // image?: EmbedAssetData;
-  // thumbnail?: EmbedAssetData;
-  // provider?: APIEmbedProvider;
-  // author?: EmbedAuthorData;
-  // fields?: readonly APIEmbedField[];
-  // video?: EmbedAssetData;
-
 interface EmbedPlayerInterface {
   updatePlayer(track: Track, list: Track[], customer: Customer): void
 }
@@ -30,7 +15,7 @@ export class EmbedPlayer implements EmbedPlayerInterface {
     return this.embedBuilder
   }
   private makeDuration(duration) {
-    return typeof duration === 'number' ? (duration / 60).toFixed(2).replace('.', ':') : duration
+    return duration ? (duration / 60).toFixed(2).replace('.', ':') : '-:--'
   }
   private setTrack(track) {
     this.embedBuilder.setTitle(`${track.title}  ${this.makeDuration(track.duration)}`)
@@ -61,7 +46,6 @@ export class EmbedPlayer implements EmbedPlayerInterface {
     const fields: APIEmbedField[] = [
       { name: 'Плэйлист', value: mappedList }
     ];
-    this.embedBuilder.spliceFields(0, fields.length)
     this.embedBuilder.addFields(fields)
   }
   /**
@@ -70,6 +54,7 @@ export class EmbedPlayer implements EmbedPlayerInterface {
   public updatePlayer(track: Track = null, list: Track[] = [], customer: Customer): void {
     this.customer = customer
     this.setTrack(track)
+    this.embedBuilder.spliceFields(0, 1)
     if (list.length) this.setList(list)
   }
 }

@@ -193,7 +193,7 @@ export class Music implements MusicInterface {
           url: `https://youtu.be/${item.snippet.resourceId.videoId}`,
           title: item.snippet.title,
           thumbnail: item.snippet.thumbnails.default.url,
-          duration: item.contentDetails?.endAt || '-:--'
+          duration: item.contentDetails?.endAt
         })
       })
     } catch (error) {

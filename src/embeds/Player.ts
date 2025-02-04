@@ -23,14 +23,14 @@ export class EmbedPlayer implements EmbedPlayerInterface {
     this.embedBuilder.setThumbnail(track.thumbnail)
     this.embedBuilder.setAuthor({ name: `${this.customer?.name || 'хуй знает кто'} заказал:`, iconURL: this.customer?.icon })
   }
-  private makeMappedList(list: Track[], isLast: boolean) {
+  private makeMappedList(list: Track[], isLast: boolean, originalLength = list.length) {
     return list.map((track: Track, i) => {
       let itemString: string = `${i + (
         isLast
-          ? (list.length - this.shownTracks) + 1
+          ? (originalLength - this.shownTracks) + 1
           : 1
       )}.`
-      return `${itemString} [${track.title}](<${track.url}>)  ${this.makeDuration(track.duration)}. ${this.customer.name}`
+      return `${itemString} [${track.title}](<${track.url}>)  ${this.makeDuration(track.duration)} — ${this.customer.name}`
     }).join('\n')
   }
   private setList(list) {
@@ -39,7 +39,7 @@ export class EmbedPlayer implements EmbedPlayerInterface {
     if (list.length > limit) {
       const firstChunk = list.slice(0, this.shownTracks);
       const lastChunk = list.slice(-this.shownTracks);
-      mappedList = `${this.makeMappedList(firstChunk, false)}\n...\n${this.makeMappedList(lastChunk, true)}`
+      mappedList = `${this.makeMappedList(firstChunk, false)}\n...\n${this.makeMappedList(lastChunk, true, list.length)}`
     } else {
       mappedList = this.makeMappedList(list, false)
     }

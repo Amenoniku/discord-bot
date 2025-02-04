@@ -9,3 +9,8 @@ type Customer = {
   name: string,
   icon?: string
 }
+
+type ReactButton = {
+  action(): void,
+  emoji: EmojiResolvable
+}

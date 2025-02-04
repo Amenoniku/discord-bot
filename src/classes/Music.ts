@@ -43,20 +43,36 @@ export class Music implements MusicInterface {
   private disconTimer = null
 
   public player: AudioPlayer
+  private playerMessage: Message = null
+  private reactButtons: ReactButton[] = []
   private embedPlayer: EmbedPlayer
   private queue: Track[] = []
   private currentTrack: Track
-  private payerMessage: Message = null
   private customer: Customer
+
 
   constructor(private client: Client) {
     this.embedPlayer = new EmbedPlayer()
-
     this.player = createAudioPlayer({
-      behaviors: {
-        noSubscriber: NoSubscriberBehavior.Pause,
-      },
+      behaviors: { noSubscriber: NoSubscriberBehavior.Pause },
     });
+    this.reactButtons = [
+      {action: () => {
+        this.player[this.player.state.status === AudioPlayerStatus.Paused ? 'unpause' : 'pause']()
+      }, emoji:'⏯️'},
+      {action: () => {
+        this.playerMessage.reactions.removeAll()
+        const nextTrack = this.queue[0]
+        this.textChannel.send(`
+          ${this.skip()}.${nextTrack ? `\nИду по нексилю, гружу [${nextTrack.title}](<${nextTrack.url}>)...`: 'А все, музыка кончилась'}
+        `)
+      }, emoji: '⏩'},
+      {action: () => {
+        this.textChannel.send('Все, дискотека окончена!')
+        this.player.stop()
+        this.clearQueue()
+      }, emoji: '⏹️'}
+    ]
     this.player.on('stateChange', async (oldState: AudioPlayerState, newState: AudioPlayerState) => {
       if (oldState.status === AudioPlayerStatus.Playing && newState.status === AudioPlayerStatus.Idle) {
         this.playing()
@@ -68,6 +84,13 @@ export class Music implements MusicInterface {
     });
 
     this.client.on('voiceStateUpdate', this.voiceStateUpdateHandler)
+    this.client.on('messageReactionAdd', async (reaction, user) => {
+      const { emoji, message } = reaction
+      if (user.bot || message.id !== this.playerMessage.id) return;
+      const btn = this.reactButtons.find(btn => btn.emoji === emoji.name)
+      btn.action.call(this)
+      reaction.users.remove(user.id)
+    })
   }
 
   public async play(prompt: string, voiceChannel: VoiceBasedChannel, textChannel: TextChannel, author: User): Promise<void> {
@@ -101,30 +124,16 @@ export class Music implements MusicInterface {
   public clearQueue() {
     this.queue = []
   }
+
+
   public async renderQueue(): Promise<void> {
-    if (this.payerMessage) {
-      this.payerMessage.delete()
-      this.payerMessage = null
+    if (this.playerMessage) {
+      this.playerMessage.delete()
+      this.playerMessage = null
     }
-    // const shownTracks = 3
-    // const limit = (shownTracks * 2);
-    // let playlistEmbed = { ...playList }
-    // const mapper = (arr: Track[], isLast: boolean = false): string => arr
-    //   .map((item, i) => `${i + (
-    //     isLast
-    //       ? (this.queue.length - shownTracks) + 1
-    //       : 1
-    //   )}. [${item.title}](${item.url})`)
-    //   .join('\n')
-    // if (this.queue.length > limit) {
-    //   const firstChunk = this.queue.slice(0, shownTracks);
-    //   const lastChunk = this.queue.slice(-shownTracks);
-    //   playlistEmbed.fields[2].value = `${mapper(firstChunk)}\n...\n${mapper(lastChunk, true)}`
-    // } else playlistEmbed.fields[2].value = mapper(this.queue)
-    // playlistEmbed.fields[0].value = `[${this.currentTrack.title}](${this.currentTrack.url})`
-    // this.payerMessage = await this.textChannel.send({ embeds: [playlistEmbed] })
     this.embedPlayer.updatePlayer(this.currentTrack, this.queue, this.customer)
-    this.payerMessage = await this.textChannel.send({ embeds: [this.embedPlayer.embed] })
+    this.playerMessage = await this.textChannel.send({ embeds: [this.embedPlayer.embed] })
+    this.reactButtons.forEach(btn => this.playerMessage.react(btn.emoji))
   }
 
   private async promptParse(prompt: string): Promise<void> {
@@ -232,10 +241,10 @@ export class Music implements MusicInterface {
         await this.playing()
       }
     }
-    else if (this.queue.length === 0 && this.payerMessage) {
-      await this.payerMessage.delete()
+    else if (this.queue.length === 0 && this.playerMessage) {
+      await this.playerMessage.delete()
       this.currentTrack = null
-      this.payerMessage = null
+      this.playerMessage = null
     }
   }
 
@@ -278,10 +287,10 @@ export class Music implements MusicInterface {
       this.queue = []
       this.disconTimer = null
       this.voiceConnection = null
-      if (this.payerMessage) {
-        this.payerMessage.delete()
+      if (this.playerMessage) {
+        this.playerMessage.delete()
         this.currentTrack = null
-        this.payerMessage = null
+        this.playerMessage = null
       }
     }, (2 * 60) * 1000);
     else {

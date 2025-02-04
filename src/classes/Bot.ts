@@ -42,7 +42,12 @@ export class Bot implements BotInterface {
         case 'плэй':
         case 'ебашь':
           await this.loadingOn(message, 'гружу трек...')
-          await this.music.play(xTrim(messageToBot, 1), message.member.voice.channel, message.channel as TextChannel)
+          await this.music.play(
+            xTrim(messageToBot, 1),
+            message.member.voice.channel,
+            message.channel as TextChannel,
+            message.author
+          )
           break
         case 'падажжи':
           await this.loadingOn(message, 'окей бро, притормаживаю...')

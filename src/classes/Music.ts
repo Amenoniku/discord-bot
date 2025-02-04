@@ -3,7 +3,7 @@ import { createWriteStream, createReadStream } from "fs";
 import { readdir, unlink } from "node:fs/promises";
 import { join } from "path";
 import * as ytdl from '@distube/ytdl-core';
-import type { VoiceBasedChannel, Client, TextChannel, Message, EmbedBuilder } from "discord.js"
+import type { VoiceBasedChannel, Client, TextChannel, Message, User } from "discord.js"
 import {
   joinVoiceChannel,
   VoiceConnection,
@@ -18,7 +18,7 @@ import {
 } from "@discordjs/voice"
 import { google, youtube_v3 } from 'googleapis';
 
-import { playList } from "../embeds/PlayList";
+import { EmbedPlayer } from "../embeds/Player";
 import { xTrim } from "../utils";
 
 interface MusicInterface {
@@ -26,12 +26,7 @@ interface MusicInterface {
   skip(): void
   clearQueue(): void
   renderQueue(): void
-  play(prompt: string, voiceChannel: VoiceBasedChannel, textChannel: TextChannel): Promise<void>
-}
-
-type Track = {
-  url: string
-  title: string
+  play(prompt: string, voiceChannel: VoiceBasedChannel, textChannel: TextChannel, author: User): Promise<void>
 }
 
 type Error<T> = {
@@ -40,7 +35,6 @@ type Error<T> = {
 };
 
 export class Music implements MusicInterface {
-
   private ytapi: youtube_v3.Youtube = google.youtube({ version: 'v3', auth: process.env.YOUTUBE_TOKEN})
 
   private textChannel: TextChannel
@@ -49,11 +43,14 @@ export class Music implements MusicInterface {
   private disconTimer = null
 
   public player: AudioPlayer
+  private embedPlayer: EmbedPlayer
   private queue: Track[] = []
   private currentTrack: Track
-  private playListMessage: Message = null
+  private payerMessage: Message = null
+  private customer: Customer
 
   constructor(private client: Client) {
+    this.embedPlayer = new EmbedPlayer()
 
     this.player = createAudioPlayer({
       behaviors: {
@@ -73,9 +70,10 @@ export class Music implements MusicInterface {
     this.client.on('voiceStateUpdate', this.voiceStateUpdateHandler)
   }
 
-  public async play(prompt: string, voiceChannel: VoiceBasedChannel, textChannel: TextChannel): Promise<void> {
-    console.log('Зажигаю...', prompt)
+  public async play(prompt: string, voiceChannel: VoiceBasedChannel, textChannel: TextChannel, author: User): Promise<void> {
     if (!prompt.trim()) throw "Ты, другалек, нечего не написал... Чё мне играть то?"
+    console.log(`${author.displayName} заказал: ${prompt}`)
+    this.customer = { name: author.displayName, icon: author.avatarURL()}
     try {
       this.connection(voiceChannel)
       this.textChannel = textChannel
@@ -104,27 +102,29 @@ export class Music implements MusicInterface {
     this.queue = []
   }
   public async renderQueue(): Promise<void> {
-    if (this.playListMessage) {
-      this.playListMessage.delete()
-      this.playListMessage = null
+    if (this.payerMessage) {
+      this.payerMessage.delete()
+      this.payerMessage = null
     }
-    const shownTracks = 3
-    const limit = (shownTracks * 2);
-    let playlistEmbed = { ...playList }
-    const mapper = (arr: Track[], isLast: boolean = false): string => arr
-      .map((item, i) => `${i + (
-        isLast
-          ? (this.queue.length - shownTracks) + 1
-          : 1
-      )}. [${item.title}](${item.url})`)
-      .join('\n')
-    if (this.queue.length > limit) {
-      const firstChunk = this.queue.slice(0, shownTracks);
-      const lastChunk = this.queue.slice(-shownTracks);
-      playlistEmbed.fields[2].value = `${mapper(firstChunk)}\n...\n${mapper(lastChunk, true)}`
-    } else playlistEmbed.fields[2].value = mapper(this.queue)
-    playlistEmbed.fields[0].value = `[${this.currentTrack.title}](${this.currentTrack.url})`
-    this.playListMessage = await this.textChannel.send({ embeds: [playlistEmbed] })
+    // const shownTracks = 3
+    // const limit = (shownTracks * 2);
+    // let playlistEmbed = { ...playList }
+    // const mapper = (arr: Track[], isLast: boolean = false): string => arr
+    //   .map((item, i) => `${i + (
+    //     isLast
+    //       ? (this.queue.length - shownTracks) + 1
+    //       : 1
+    //   )}. [${item.title}](${item.url})`)
+    //   .join('\n')
+    // if (this.queue.length > limit) {
+    //   const firstChunk = this.queue.slice(0, shownTracks);
+    //   const lastChunk = this.queue.slice(-shownTracks);
+    //   playlistEmbed.fields[2].value = `${mapper(firstChunk)}\n...\n${mapper(lastChunk, true)}`
+    // } else playlistEmbed.fields[2].value = mapper(this.queue)
+    // playlistEmbed.fields[0].value = `[${this.currentTrack.title}](${this.currentTrack.url})`
+    // this.payerMessage = await this.textChannel.send({ embeds: [playlistEmbed] })
+    this.embedPlayer.updatePlayer(this.currentTrack, this.queue, this.customer)
+    this.payerMessage = await this.textChannel.send({ embeds: [this.embedPlayer.embed] })
   }
 
   private async promptParse(prompt: string): Promise<void> {
@@ -189,7 +189,12 @@ export class Music implements MusicInterface {
         maxResults: 50
       })
       data.items.forEach(item => {
-        this.addQueue({ url: `https://youtu.be/${item.snippet.resourceId.videoId}`, title: item.snippet.title })
+        this.addQueue({
+          url: `https://youtu.be/${item.snippet.resourceId.videoId}`,
+          title: item.snippet.title,
+          thumbnail: item.snippet.thumbnails.default.url,
+          duration: item.contentDetails?.endAt || '-:--'
+        })
       })
     } catch (error) {
       throw error
@@ -203,7 +208,12 @@ export class Music implements MusicInterface {
   private async getTrackInfo(href: string): Promise<ytdl.MoreVideoDetails> {
     try {
       const { videoDetails }: ytdl.videoInfo = await ytdl.getBasicInfo(href)
-      this.addQueue({url: videoDetails.video_url, title: videoDetails.title})
+      this.addQueue({
+        url: videoDetails.video_url,
+        title: videoDetails.title,
+        thumbnail: videoDetails.thumbnails[0].url,
+        duration: videoDetails.lengthSeconds
+      })
       return videoDetails
     } catch (error) {
       throw error
@@ -222,10 +232,10 @@ export class Music implements MusicInterface {
         await this.playing()
       }
     }
-    else if (this.queue.length === 0 && this.playListMessage) {
-      await this.playListMessage.delete()
+    else if (this.queue.length === 0 && this.payerMessage) {
+      await this.payerMessage.delete()
       this.currentTrack = null
-      this.playListMessage = null
+      this.payerMessage = null
     }
   }
 
@@ -268,10 +278,10 @@ export class Music implements MusicInterface {
       this.queue = []
       this.disconTimer = null
       this.voiceConnection = null
-      if (this.playListMessage) {
-        this.playListMessage.delete()
+      if (this.payerMessage) {
+        this.payerMessage.delete()
         this.currentTrack = null
-        this.playListMessage = null
+        this.payerMessage = null
       }
     }, (2 * 60) * 1000);
     else {

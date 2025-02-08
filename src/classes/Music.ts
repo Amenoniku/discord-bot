@@ -117,7 +117,7 @@ export class Music implements MusicInterface {
 
   private addQueue(track: Track) {
     const maxQueue = 200
-    if ((this.queue.length + 1) < maxQueue ) this.queue.push(track)
+    if ((this.queue.length + 1) < maxQueue ) this.queue.push({...track, customer: this.customer})
     else throw `Больше ${maxQueue} треков низя!`
   }
 

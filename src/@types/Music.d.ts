@@ -3,6 +3,7 @@ type Track = {
   title: string,
   duration?: string,
   thumbnail? : string
+  customer?: Customer
 }
 
 type Customer = {

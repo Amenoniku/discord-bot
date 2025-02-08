@@ -49,6 +49,7 @@ export class Music implements MusicInterface {
   private queue: Track[] = []
   private currentTrack: Track
   private customer: Customer
+  private forceAdded: boolean
 
 
   constructor(private client: Client) {
@@ -96,6 +97,10 @@ export class Music implements MusicInterface {
   public async play(prompt: string, voiceChannel: VoiceBasedChannel, textChannel: TextChannel, author: User): Promise<void> {
     if (!prompt.trim()) throw "Ты, другалек, нечего не написал... Чё мне играть то?"
     console.log(`${author.displayName} заказал: ${prompt}`)
+    if (/-ф$/.test(prompt)) {
+      prompt = xTrim(prompt, '-ф')
+      this.forceAdded = true
+    } else this.forceAdded = false
     this.customer = { name: author.displayName, icon: author.avatarURL()}
     try {
       this.connection(voiceChannel)
@@ -117,14 +122,13 @@ export class Music implements MusicInterface {
 
   private addQueue(track: Track) {
     const maxQueue = 200
-    if ((this.queue.length + 1) < maxQueue ) this.queue.push({...track, customer: this.customer})
+    if ((this.queue.length + 1) < maxQueue ) this.queue[this.forceAdded ? 'unshift' : 'push']({...track, customer: this.customer})
     else throw `Больше ${maxQueue} треков низя!`
   }
 
   public clearQueue() {
     this.queue = []
   }
-
 
   public async renderQueue(): Promise<void> {
     if (this.playerMessage) {

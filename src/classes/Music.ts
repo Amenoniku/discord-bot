@@ -250,21 +250,25 @@ export class Music implements MusicInterface {
 
   private makeAudioResource (): Promise<AudioResource> {
     return new Promise(async (resolve, reject) => {
-      this.currentTrack = this.queue.shift()
-      if (!this.currentTrack) return reject('Нету трека')
-      const fileName = `resources/${`${Math.random()}`.replace('0.', '')}.webm`
-      const ytdlStream = ytdl(this.currentTrack.url.trim(), { filter: 'audioonly' })
-      ytdlStream.pipe(createWriteStream(fileName))
-      ytdlStream.on('finish', () => {
-        const resource: AudioResource = createAudioResource(createReadStream(fileName), {
-          inputType: StreamType.WebmOpus,
-          inlineVolume: true,
+      try {
+        this.currentTrack = this.queue.shift()
+        if (!this.currentTrack) return reject('Нету трека')
+        const fileName = `resources/${`${Math.random()}`.replace('0.', '')}.webm`
+        const ytdlStream = ytdl(this.currentTrack.url.trim(), { filter: 'audioonly' })
+        ytdlStream.pipe(createWriteStream(fileName))
+        ytdlStream.on('finish', () => {
+          const resource: AudioResource = createAudioResource(createReadStream(fileName), {
+            inputType: StreamType.WebmOpus,
+            inlineVolume: true,
+          });
+          this.player.play(resource)
+          this.renderQueue()
+          resolve(resource)
         });
-        this.player.play(resource)
-        this.renderQueue()
-        resolve(resource)
-      });
-      ytdlStream.on('error', err => reject(err))
+        ytdlStream.on('error', err => reject(err))
+      } catch (err) {
+        throw err;
+      }
     })
   }
 

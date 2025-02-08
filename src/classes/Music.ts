@@ -3,7 +3,7 @@ import { createWriteStream, createReadStream } from "fs";
 import { readdir, unlink } from "node:fs/promises";
 import { join } from "path";
 import * as ytdl from '@distube/ytdl-core';
-import type { VoiceBasedChannel, Client, TextChannel, Message, User } from "discord.js"
+import type { VoiceBasedChannel, Client, TextChannel, Message, GuildMember } from "discord.js"
 import {
   joinVoiceChannel,
   VoiceConnection,
@@ -26,7 +26,7 @@ interface MusicInterface {
   skip(): void
   clearQueue(): void
   renderQueue(): void
-  play(prompt: string, voiceChannel: VoiceBasedChannel, textChannel: TextChannel, author: User): Promise<void>
+  play(prompt: string, voiceChannel: VoiceBasedChannel, textChannel: TextChannel, member: GuildMember): Promise<void>
 }
 
 type Error<T> = {
@@ -94,14 +94,14 @@ export class Music implements MusicInterface {
     })
   }
 
-  public async play(prompt: string, voiceChannel: VoiceBasedChannel, textChannel: TextChannel, author: User): Promise<void> {
+  public async play(prompt: string, voiceChannel: VoiceBasedChannel, textChannel: TextChannel, member: GuildMember): Promise<void> {
     if (!prompt.trim()) throw "Ты, другалек, нечего не написал... Чё мне играть то?"
-    console.log(`${author.displayName} заказал: ${prompt}`)
+    console.log(`${member.displayName} заказал: ${prompt}`)
     if (/-ф$/.test(prompt)) {
       prompt = xTrim(prompt, '-ф')
       this.forceAdded = true
     } else this.forceAdded = false
-    this.customer = { name: author.displayName, icon: author.avatarURL()}
+    this.customer = { name: member.displayName, icon: member.user.avatarURL()}
     try {
       this.connection(voiceChannel)
       this.textChannel = textChannel
@@ -135,7 +135,7 @@ export class Music implements MusicInterface {
       this.playerMessage.delete()
       this.playerMessage = null
     }
-    this.embedPlayer.updatePlayer(this.currentTrack, this.queue, this.customer)
+    this.embedPlayer.updatePlayer(this.currentTrack, this.queue)
     this.playerMessage = await this.textChannel.send({ embeds: [this.embedPlayer.embed] })
     this.reactButtons.forEach(btn => this.playerMessage.react(btn.emoji))
   }

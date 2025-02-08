@@ -21,7 +21,7 @@ export class EmbedPlayer implements EmbedPlayerInterface {
     this.embedBuilder.setTitle(`${track.title}  ${this.makeDuration(track.duration)}`)
     this.embedBuilder.setURL(track.url)
     this.embedBuilder.setThumbnail(track.thumbnail)
-    this.embedBuilder.setAuthor({ name: `${this.customer?.name || 'хуй знает кто'} заказал:`, iconURL: this.customer?.icon })
+    this.embedBuilder.setAuthor({ name: `${track.customer?.name || 'хуй знает кто'} заказал:`, iconURL: track.customer?.icon })
   }
   private makeMappedList(list: Track[], isLast: boolean, originalLength = list.length) {
     return list.map((track: Track, i) => {
@@ -30,7 +30,7 @@ export class EmbedPlayer implements EmbedPlayerInterface {
           ? (originalLength - this.shownTracks) + 1
           : 1
       )}.`
-      return `${itemString} [${track.title}](<${track.url}>)  ${this.makeDuration(track.duration)} — ${this.customer.name}`
+      return `${itemString} [${track.title}](<${track.url}>)  ${this.makeDuration(track.duration)} — ${track.customer.name}`
     }).join('\n')
   }
   private setList(list) {
@@ -51,8 +51,7 @@ export class EmbedPlayer implements EmbedPlayerInterface {
   /**
    * updatePlayer
    */
-  public updatePlayer(track: Track = null, list: Track[] = [], customer: Customer): void {
-    this.customer = customer
+  public updatePlayer(track: Track = null, list: Track[] = []): void {
     this.setTrack(track)
     this.embedBuilder.spliceFields(0, 1)
     if (list.length) this.setList(list)

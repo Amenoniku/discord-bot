@@ -46,7 +46,7 @@ export class Bot implements BotInterface {
             xTrim(messageToBot, 1),
             message.member.voice.channel,
             message.channel as TextChannel,
-            message.author
+            message.member
           )
           break
         case 'падажжи':

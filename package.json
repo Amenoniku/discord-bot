@@ -17,17 +17,21 @@
   "author": "Ame",
   "license": "ISC",
   "devDependencies": {
-    "dotenv": "^16.4.7",
-    "nodemon": "^3.1.9",
+    "dotenv": "^16.6.1",
+    "nodemon": "^3.1.10",
     "ts-node": "^10.9.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.9.2"
   },
   "dependencies": {
     "@discordjs/opus": "^0.10.0",
     "@discordjs/voice": "^0.18.0",
-    "@distube/ytdl-core": "^4.16.0",
-    "discord.js": "^14.14.1",
+    "@distube/ytdl-core": "^4.16.12",
+    "@openrouter/ai-sdk-provider": "^1.1.2",
+    "axios": "^1.11.0",
+    "discord.js": "^14.21.0",
     "googleapis": "^134.0.0",
-    "libsodium-wrappers": "^0.7.15"
+    "libsodium-wrappers": "^0.7.15",
+    "opusscript": "^0.0.8",
+    "ytsr": "^3.8.4"
   }
 }

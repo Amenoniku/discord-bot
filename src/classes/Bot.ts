@@ -1,126 +1,159 @@
-import { Events } from "discord.js"
-import type { Message, Client, TextChannel } from "discord.js"
+import { Events } from "discord.js";
+import type { Message, Client, TextChannel } from "discord.js";
 
-// import { AI } from "./AI";
+import { AI } from "./AI";
 import { Music } from "./Music";
 
-import { xTrim } from "../utils"
+import { xTrim } from "../utils";
 
 interface BotInterface {
-  start(): void
+  start(): void;
 }
 
-type MessageToBot = string | false
-type ChannelId = string
+type MessageToBot = string | false;
+type ChannelId = string;
 
 export class Bot implements BotInterface {
+  private loading: boolean = false;
+  private loadingMessage: Message;
+  private channelId: ChannelId = "";
+  private ai: AI;
+  private music: Music;
 
-  private loading: boolean = false
-  private loadingMessage: Message
-  private channelId: ChannelId = ''
-  // private ai: AI
-  private music: Music
-
-  constructor(
-    private client: Client,
-    private botName: string
-  ) {
-    // this.ai = new AI()
-    this.music = new Music(client)
+  constructor(private client: Client, private botName: string) {
+    this.ai = new AI();
+    this.music = new Music(client);
   }
 
   private async messageProcessing(message: Message) {
-    this.channelId = message.channel.id
-    let messageToBot: MessageToBot = this.callToBot(message)
-    if (this.loading || (!this.loading && !messageToBot)) return
-    messageToBot = messageToBot.toString()
+    this.channelId = message.channel.id;
+    let messageToBot: MessageToBot = this.callToBot(message);
+    if (this.loading || (!this.loading && !messageToBot)) return;
+    messageToBot = messageToBot.toString();
     try {
       switch (messageToBot.match(/^\S+/)?.[0]) {
-
         // Музыкальные обращения
-        case 'го':
-        case 'плэй':
-        case 'ебашь':
-          await this.loadingOn(message, 'гружу трек...')
+        case "го":
+        case "плэй":
+        case "ебашь":
+          await this.loadingOn(message, "гружу трек...");
           await this.music.play(
             xTrim(messageToBot, 1),
             message.member.voice.channel,
             message.channel as TextChannel,
             message.member
-          )
-          break
-        case 'падажжи':
-          await this.loadingOn(message, 'окей бро, притормаживаю...')
-          this.music.player.pause()
-          break
-        case 'погнали':
-          await this.loadingOn(message, 'продолжаем...')
-          this.music.player.unpause()
-          break
-        case 'скип':
-          await this.loadingOn(message, 'ок, скипаю...')
-          message.reply(this.music.skip())
-          break
-        case 'хорош':
-        case 'заебал':
-          await message.reply('понял, принял...')
-          this.music.player.stop()
-          this.music.clearQueue()
-          break
+          );
+          break;
+        case "падажжи":
+          await this.loadingOn(message, "окей бро, притормаживаю...");
+          this.music.player.pause();
+          break;
+        case "погнали":
+          await this.loadingOn(message, "продолжаем...");
+          this.music.player.unpause();
+          break;
+        case "скип":
+          await this.loadingOn(message, "ок, скипаю...");
+          message.reply(this.music.skip());
+          break;
+        case "хорош":
+        case "заебал":
+          await message.reply("понял, принял...");
+          this.music.player.stop();
+          this.music.clearQueue();
+          break;
 
-        // chatgpt обращения
-        // case 'контекст': message.reply(JSON.stringify(this.ai.context)); break
-        // case 'нарисуй':
-        //   await this.loadingOn(message, 'рисую...')
-        //   message.reply(await this.ai.draw(xTrim(messageToBot, 'нарисуй')))
-        //   break
-        // case 'тема':
-        //   this.ai.clearContext()
-        //   await message.reply('Ааа, ну давай...')
-        //   break
-        // default:
-        //   await this.loadingOn(message, 'думаю...')
-        //   const cuttedMessage = await this.ai.think(messageToBot, this.channelId)
-        //   cuttedMessage.forEach((chunk) => message.reply(chunk))
-        //   break
+        // ai обращения
+        case "контекст":
+          message.reply(JSON.stringify(this.ai.context));
+          break;
+        // case "нарисуй":
+        //   await this.loadingOn(message, "рисую...");
+        //   message.reply(await this.ai.draw(xTrim(messageToBot, "нарисуй")));
+        //   break;
+        case "тема":
+          this.ai.clearContext();
+          await message.reply("Ааа, ну давай...");
+          break;
+        default:
+          await this.loadingOn(message, "думаю...");
+
+          let isProcessing = false;
+
+          let replyMessage: Message | null = null;
+          let messageText = "";
+          const MAX_LENGTH = 2000;
+          let checkpoint = 0;
+
+          const messagingProcess = async () => {
+            console.log("messagingProcess", messageText.length, checkpoint);
+            if (isProcessing) return;
+            isProcessing = true;
+
+            if (
+              !replyMessage ||
+              messageText.length >= MAX_LENGTH * checkpoint
+            ) {
+              replyMessage = await message.reply(
+                messageText.length < 10
+                  ? "Ща 5 сек..."
+                  : messageText.slice(MAX_LENGTH * checkpoint)
+              );
+            } else {
+              await replyMessage.edit(
+                messageText.slice(MAX_LENGTH * checkpoint)
+              );
+            }
+            if (messageText.length >= MAX_LENGTH * (checkpoint + 1)) {
+              checkpoint++;
+            }
+            isProcessing = false;
+          };
+
+          await this.ai.think(messageToBot, this.channelId, async (chunk) => {
+            messageText += chunk;
+            console.log("messageText", messageText);
+            messagingProcess();
+          });
+          // cuttedMessage.forEach((chunk) => message.reply(chunk));
+          break;
       }
     } catch (error) {
-      this.loadingError(error?.message || error)
+      this.loadingError(error?.message || error);
     } finally {
-      this.loadingOff()
+      this.loadingOff();
     }
   }
 
   public start() {
-    this.client.once(Events.ClientReady, readyClient => {
-      console.log(`Logged in as ${readyClient.user.tag}!`)
+    this.client.once(Events.ClientReady, (readyClient) => {
+      console.log(`Logged in as ${readyClient.user.tag}!`);
       // const channel = this.client.channels.cache.find(ch => ch.id == '436386682594525184')
       // channel.send('Усак на связи!')
-    })
-    this.client.on(Events.MessageCreate, this.messageProcessing.bind(this))
+    });
+    this.client.on(Events.MessageCreate, this.messageProcessing.bind(this));
   }
 
   private async loadingOn(message: Message, reply: string) {
-    this.loading = true
-    this.loadingMessage = await message.reply(`Падажжи, ${reply}...`)
-    return this.loadingMessage
+    this.loading = true;
+    this.loadingMessage = await message.reply(`Падажжи, ${reply}...`);
+    return this.loadingMessage;
   }
   private loadingOff() {
-    if (!this.loading) return
-    this.loadingMessage.delete()
-    this.loading = false
+    if (!this.loading) return;
+    this.loadingMessage.delete();
+    this.loading = false;
   }
   private loadingError(msg: string) {
-    this.loadingMessage.edit(msg)
-    this.loading = false
+    this.loadingMessage.edit(msg);
+    this.loading = false;
   }
 
   private callToBot(message: Message): MessageToBot {
-    const botNameRegExp = new RegExp(`^${this.botName} `, 'i');
-    const botNameTest = botNameRegExp.test(message.content)
-    const isCallToBot = message.author.bot === false && botNameTest
-    if (isCallToBot) return message.content.replace(botNameRegExp, '').trim()
-    else return false
+    const botNameRegExp = new RegExp(`^${this.botName} `, "i");
+    const botNameTest = botNameRegExp.test(message.content);
+    const isCallToBot = message.author.bot === false && botNameTest;
+    if (isCallToBot) return message.content.replace(botNameRegExp, "").trim();
+    else return false;
   }
-
 }

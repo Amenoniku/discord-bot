@@ -3,6 +3,7 @@ import type { Message, Client, TextChannel } from "discord.js";
 
 import { AI } from "./AI";
 import { Music } from "./Music";
+import { MessageLoop } from "./MessageLoop";
 
 import { xTrim } from "../utils";
 
@@ -13,14 +14,23 @@ interface BotInterface {
 type MessageToBot = string | false;
 type ChannelId = string;
 
+interface QueueItem {
+  message: Message;
+  messageToBot: string;
+}
+
 export class Bot implements BotInterface {
   private loading: boolean = false;
   private loadingMessage: Message;
   private channelId: ChannelId = "";
   private ai: AI;
   private music: Music;
+  private queue: QueueItem[] = [];
 
-  constructor(private client: Client, private botName: string) {
+  constructor(
+    private client: Client,
+    private botName: string,
+  ) {
     this.ai = new AI();
     this.music = new Music(client);
   }
@@ -28,8 +38,25 @@ export class Bot implements BotInterface {
   private async messageProcessing(message: Message) {
     this.channelId = message.channel.id;
     let messageToBot: MessageToBot = this.callToBot(message);
-    if (this.loading || (!this.loading && !messageToBot)) return;
+    if (!messageToBot) return;
+
     messageToBot = messageToBot.toString();
+
+    // Если бот занят, добавляем в очередь
+    if (this.loading) {
+      this.queue.push({ message, messageToBot });
+      await message.reply(
+        `Погоди, не грузи меня! Становись в очередь, ты ${this.queue.length}`,
+      );
+      return;
+    }
+
+    await this.processMessage(message, messageToBot);
+  }
+
+  private async processMessage(message: Message, messageToBot: string) {
+    let updateTimeout: NodeJS.Timeout | null = null;
+
     try {
       switch (messageToBot.match(/^\S+/)?.[0]) {
         // Музыкальные обращения
@@ -41,7 +68,7 @@ export class Bot implements BotInterface {
             xTrim(messageToBot, 1),
             message.member.voice.channel,
             message.channel as TextChannel,
-            message.member
+            message.member,
           );
           break;
         case "падажжи":
@@ -77,51 +104,32 @@ export class Bot implements BotInterface {
           break;
         default:
           await this.loadingOn(message, "думаю...");
-
-          let isProcessing = false;
-
-          let replyMessage: Message | null = null;
-          let messageText = "";
-          const MAX_LENGTH = 2000;
-          let checkpoint = 0;
-
-          const messagingProcess = async () => {
-            console.log("messagingProcess", messageText.length, checkpoint);
-            if (isProcessing) return;
-            isProcessing = true;
-
-            if (
-              !replyMessage ||
-              messageText.length >= MAX_LENGTH * checkpoint
-            ) {
-              replyMessage = await message.reply(
-                messageText.length < 10
-                  ? "Ща 5 сек..."
-                  : messageText.slice(MAX_LENGTH * checkpoint)
-              );
-            } else {
-              await replyMessage.edit(
-                messageText.slice(MAX_LENGTH * checkpoint)
-              );
-            }
-            if (messageText.length >= MAX_LENGTH * (checkpoint + 1)) {
-              checkpoint++;
-            }
-            isProcessing = false;
-          };
-
-          await this.ai.think(messageToBot, this.channelId, async (chunk) => {
-            messageText += chunk;
-            console.log("messageText", messageText);
-            messagingProcess();
-          });
-          // cuttedMessage.forEach((chunk) => message.reply(chunk));
+          const messageLoop = new MessageLoop(message);
+          await this.ai.think(
+            messageToBot,
+            this.channelId,
+            message.member,
+            (chunk) => {
+              messageLoop.addChunk(chunk);
+            },
+          );
           break;
       }
     } catch (error) {
+      console.error(error);
       this.loadingError(error?.message || error);
     } finally {
       this.loadingOff();
+      await this.processQueue();
+    }
+  }
+
+  private async processQueue() {
+    if (this.queue.length === 0 || this.loading) return;
+
+    const nextItem = this.queue.shift();
+    if (nextItem) {
+      await this.processMessage(nextItem.message, nextItem.messageToBot);
     }
   }
 

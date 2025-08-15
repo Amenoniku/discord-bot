@@ -1,0 +1,37 @@
+name: Deploy Discord bot
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build-and-deploy:
+    runs-on: docker
+    steps:
+      - uses: actions/checkout@v4
+
+      # Собираем Docker-образ с прокидыванием секретов
+      - run: |
+          docker build \
+            --build-arg BOT_NAME=${{ secrets.BOT_NAME }} \
+            --build-arg DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }} \
+            --build-arg OAUTH_CLIENT_ID=${{ secrets.OAUTH_CLIENT_ID }} \
+            --build-arg OPENROUTER_KEY=${{ secrets.OPENROUTER_KEY }} \
+            --build-arg YOUTUBE_TOKEN=${{ secrets.YOUTUBE_TOKEN }} \
+            -t discord-bot .
+
+      # Перезапуск контейнера
+      - run: |
+          docker stop discord-bot || true
+          docker rm discord-bot || true
+          docker run -d \
+            --name discord-bot \
+            --restart unless-stopped \
+            -p 3000:3000 \
+            -e BOT_NAME=${{ secrets.BOT_NAME }} \
+            -e DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }} \
+            -e OAUTH_CLIENT_ID=${{ secrets.OAUTH_CLIENT_ID }} \
+            -e OPENROUTER_KEY=${{ secrets.OPENROUTER_KEY }} \
+            -e YOUTUBE_TOKEN=${{ secrets.YOUTUBE_TOKEN }} \
+            discord-bot

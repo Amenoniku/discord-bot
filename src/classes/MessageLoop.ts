@@ -56,8 +56,8 @@ export class MessageLoop implements MessageLoopInterface {
       if (messageObj.message) {
         await messageObj.message.edit(messageObj.text);
       } else {
-        console.log(`Sending message: ${messageObj.text}`);
-        messageObj.message = await this.message.reply(messageObj.text);
+        if (messageObj.text)
+          messageObj.message = await this.message.reply(messageObj.text);
       }
     }
   }

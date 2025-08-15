@@ -1,17 +1,21 @@
-type Track = {
-  url: string
-  title: string,
-  duration?: string,
-  thumbnail? : string
-  customer?: Customer
-}
+import { EmojiResolvable } from "discord.js";
 
-type Customer = {
-  name: string,
-  icon?: string
-}
+declare global {
+  type Track = {
+    url: string;
+    title: string;
+    duration?: string;
+    thumbnail?: string;
+    customer?: Customer;
+  };
 
-type ReactButton = {
-  action(): void,
-  emoji: EmojiResolvable
+  type Customer = {
+    name: string;
+    icon?: string;
+  };
+
+  type ReactButton = {
+    action(): void;
+    emoji: EmojiResolvable;
+  };
 }

@@ -2,7 +2,7 @@ require("dotenv").config();
 import { createWriteStream, createReadStream } from "fs";
 import { readdir, unlink } from "node:fs/promises";
 import { join } from "path";
-import * as ytdl from "@distube/ytdl-core";
+import ytdl from "@distube/ytdl-core";
 import type {
   VoiceBasedChannel,
   Client,
@@ -36,7 +36,7 @@ interface MusicInterface {
     prompt: string,
     voiceChannel: VoiceBasedChannel,
     textChannel: TextChannel,
-    member: GuildMember
+    member: GuildMember,
   ): Promise<void>;
 }
 
@@ -113,11 +113,11 @@ export class Music implements MusicInterface {
         ) {
           this.playing();
         }
-      }
+      },
     );
     this.player.on("error", (error) => {
       console.error(
-        `Error: ${error.message} with resource ${error.resource.metadata}`
+        `Error: ${error.message} with resource ${error.resource.metadata}`,
       );
       this.playing();
     });
@@ -136,7 +136,7 @@ export class Music implements MusicInterface {
     prompt: string,
     voiceChannel: VoiceBasedChannel,
     textChannel: TextChannel,
-    member: GuildMember
+    member: GuildMember,
   ): Promise<void> {
     if (!prompt.trim())
       throw "Ты, другалек, нечего не написал... Чё мне играть то?";
@@ -239,7 +239,7 @@ export class Music implements MusicInterface {
         const videoDetails = await this.getTrackInfo(item.id.videoId);
         if (errCount)
           await this.textChannel.send(
-            `После ${errCount} попыток скачать трек, счакалось это [${videoDetails.title}](<${videoDetails.video_url}>)`
+            `После ${errCount} попыток скачать трек, счакалось это [${videoDetails.title}](<${videoDetails.video_url}>)`,
           );
         break;
       } catch (error) {
@@ -269,7 +269,7 @@ export class Music implements MusicInterface {
 
   private getYtdlError(prompt: string, reason: Error<string>): string {
     return `Ютуб не дает скачать <${prompt}>, можешь [поискать](<https://www.youtube.com/results?search_query=${encodeURIComponent(
-      prompt
+      prompt,
     )}>) другую версию. Причина: ${reason.message || reason}`;
   }
 
@@ -297,7 +297,7 @@ export class Music implements MusicInterface {
         return await this.makeAudioResource();
       } catch (error) {
         await this.textChannel.send(
-          this.getYtdlError(this.currentTrack?.title, error)
+          this.getYtdlError(this.currentTrack?.title, error),
         );
         await this.playing();
       }
@@ -315,7 +315,7 @@ export class Music implements MusicInterface {
         if (!this.currentTrack) return reject("Нету трека");
         const fileName = `resources/${`${Math.random()}`.replace(
           "0.",
-          ""
+          "",
         )}.webm`;
         const ytdlStream = ytdl(this.currentTrack.url.trim(), {
           filter: "audioonly",
@@ -327,7 +327,7 @@ export class Music implements MusicInterface {
             {
               inputType: StreamType.WebmOpus,
               inlineVolume: true,
-            }
+            },
           );
           this.player.play(resource);
           this.renderQueue();
@@ -356,18 +356,21 @@ export class Music implements MusicInterface {
   private voiceStateUpdateHandler = () => {
     if (!this.voiceConnection) return;
     if (this.voiceChannel.members.size === 1 && this.disconTimer === null)
-      this.disconTimer = setTimeout(() => {
-        this.player.stop();
-        this.voiceConnection.destroy();
-        this.queue = [];
-        this.disconTimer = null;
-        this.voiceConnection = null;
-        if (this.playerMessage) {
-          this.playerMessage.delete();
-          this.currentTrack = null;
-          this.playerMessage = null;
-        }
-      }, 2 * 60 * 1000);
+      this.disconTimer = setTimeout(
+        () => {
+          this.player.stop();
+          this.voiceConnection.destroy();
+          this.queue = [];
+          this.disconTimer = null;
+          this.voiceConnection = null;
+          if (this.playerMessage) {
+            this.playerMessage.delete();
+            this.currentTrack = null;
+            this.playerMessage = null;
+          }
+        },
+        2 * 60 * 1000,
+      );
     else {
       clearTimeout(this.disconTimer);
       this.disconTimer = null;

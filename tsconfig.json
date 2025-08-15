@@ -2,18 +2,17 @@
   "ts-node": {
     "files": true
   },
-  "files": [
-    "src/main.ts",
-    "src/@types/discord.d.ts"
-  ],
+  "files": ["src/main.ts", "src/@types/discord.d.ts"],
   "compilerOptions": {
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "types": ["node", "discord.js"],
+    "skipLibCheck": true,
     "typeRoots": ["src/@types", "node_modules/@types"],
-    "lib": [
-      "es2020"
-    ],
+    "lib": ["es2020", "esnext", "dom"],
     "target": "es2020",
     "module": "commonjs",
     "outDir": "dist"
   },
-  "include": ["src"],
+  "include": ["src", "src/@types"]
 }

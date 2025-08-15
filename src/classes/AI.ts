@@ -42,7 +42,8 @@ interface ModelsResponse {
 
 export class AI implements AIInterface {
   private apiKey: string = process.env.OPENROUTER_KEY;
-  private modelName: string = "openai/gpt-oss-20b:free";
+  private modelName: string =
+    "cognitivecomputations/dolphin-mistral-24b-venice-edition:free";
   private maxTokens: number = 2048;
   private model = createOpenRouter({ apiKey: this.apiKey }).chat(
     this.modelName,
@@ -168,7 +169,7 @@ export class AI implements AIInterface {
   private loadSystemPrompt(): string {
     try {
       const fileName = "system.txt";
-      const promptPath = join(__dirname, "../prompts", fileName);
+      const promptPath = join(__dirname, "../../prompts", fileName);
       return readFileSync(promptPath, "utf-8");
     } catch (error) {
       console.error("Error loading system prompt:", error);

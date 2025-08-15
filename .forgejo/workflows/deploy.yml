@@ -1,24 +1,31 @@
-name: Deploy Discord bot
-
+name: Deploy to Docker
 on:
   push:
-    branches:
-      - master
+    branches: ["master"]
+
+env:
+  DOCKER_HOST: tcp://172.20.0.2:2375
 
 jobs:
   build-and-deploy:
     runs-on: docker
+    container:
+      image: node:20-alpine
     steps:
-      - uses: actions/checkout@v4
+      # Устанавливаем Docker CLI
+      - name: Install Docker CLI
+        run: |
+          apk add --no-cache docker-cli
 
-      # Собираем Docker-образ с прокидыванием секретов
-      - run: |
+      # Получаем исходный код из репозитория
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Собираем Docker-образ
+      - name: Build Docker image
+        run: |
+          echo "DOCKER_HOST: $DOCKER_HOST"
           docker build \
-            --build-arg BOT_NAME=${{ secrets.BOT_NAME }} \
-            --build-arg DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }} \
-            --build-arg OAUTH_CLIENT_ID=${{ secrets.OAUTH_CLIENT_ID }} \
-            --build-arg OPENROUTER_KEY=${{ secrets.OPENROUTER_KEY }} \
-            --build-arg YOUTUBE_TOKEN=${{ secrets.YOUTUBE_TOKEN }} \
             -t discord-bot .
 
       # Перезапуск контейнера
@@ -28,7 +35,6 @@ jobs:
           docker run -d \
             --name discord-bot \
             --restart unless-stopped \
-            -p 3000:3000 \
             -e BOT_NAME=${{ secrets.BOT_NAME }} \
             -e DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }} \
             -e OAUTH_CLIENT_ID=${{ secrets.OAUTH_CLIENT_ID }} \

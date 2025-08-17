@@ -42,7 +42,7 @@ interface ModelsResponse {
 
 export class AI implements AIInterface {
   private apiKey: string = process.env.OPENROUTER_KEY;
-  private modelName: string = "deepseek/deepseek-chat-v3-0324:free";
+  private modelName: string = "z-ai/glm-4.5-air:free";
   private maxTokens: number = 2048;
   private model = createOpenRouter({ apiKey: this.apiKey }).chat(
     this.modelName,

@@ -16,7 +16,7 @@ interface AIInterface {
     member: GuildMember,
     onChunk: (chunk: string) => Promise<void>,
     // draw(prompt: string): Promise<string>;
-  ): Promise<void>;
+  ): Promise<string>;
 }
 
 type ChannelId = string;
@@ -61,12 +61,13 @@ export class AI implements AIInterface {
     channelId: ChannelId,
     member: GuildMember,
     onChunk: (chunk: string) => void,
-  ): Promise<void> {
+  ): Promise<string> {
     this.channelId = channelId;
     this.addContextItem(`${member.displayName}: ${prompt}`, "user");
     try {
       const fullText = await this.textRequest(onChunk);
       this.addContextItem(fullText, "assistant");
+      return fullText;
     } catch (error) {
       console.error(error);
       throw `Бля чел, я заебался! Спроси ченить попроще... И вообще, иди на хуй! ${error}`;
@@ -104,10 +105,10 @@ export class AI implements AIInterface {
     // Приблизительный подсчет токенов (4 символа ≈ 1 токен)
     const estimateTokens = (content: string | any) => {
       if (typeof content === "string") {
-        return Math.ceil(content.length / 4);
+        return Math.ceil(content.length);
       }
       // Для сложных типов контента возвращаем приблизительную оценку
-      return Math.ceil(JSON.stringify(content).length / 4);
+      return Math.ceil(JSON.stringify(content).length);
     };
 
     // Подсчитываем общее количество токенов в контексте

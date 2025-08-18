@@ -103,7 +103,7 @@ export class Bot implements BotInterface {
           await message.reply("Ааа, ну давай...");
           break;
         default:
-          await this.loadingOn(message, "думаю...");
+          await this.loadingOn(message, "блять, на меня книги упали...");
           const messageLoop = new MessageLoop(message);
           await this.ai.think(
             messageToBot,
@@ -113,6 +113,7 @@ export class Bot implements BotInterface {
               messageLoop.addChunk(chunk);
             },
           );
+          messageLoop.sendFullText();
           break;
       }
     } catch (error) {

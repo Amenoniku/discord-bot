@@ -2,6 +2,7 @@ import { Message } from "discord.js";
 
 interface MessageLoopInterface {
   addChunk(chunk: string): void;
+  sendFullText(): void;
 }
 
 type MessageObject = {
@@ -60,5 +61,14 @@ export class MessageLoop implements MessageLoopInterface {
           messageObj.message = await this.message.reply(messageObj.text);
       }
     }
+  }
+
+  public sendFullText(): void {
+    this.messageArray.forEach(async (messageObj) => {
+      if (messageObj.text.length === 0) return;
+      if (messageObj.message) {
+        messageObj.message.edit(messageObj.text);
+      }
+    });
   }
 }

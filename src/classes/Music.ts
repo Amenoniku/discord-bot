@@ -2,7 +2,7 @@ require("dotenv").config();
 import { createWriteStream, createReadStream } from "fs";
 import { readdir, unlink } from "node:fs/promises";
 import { join } from "path";
-import ytdl from "@distube/ytdl-core";
+import { VideoInfo, YtDlp } from "ytdlp-nodejs";
 import type {
   VoiceBasedChannel,
   Client,
@@ -45,7 +45,7 @@ type Error<T> = {
   [key: string]: T;
 };
 
-export class Music implements MusicInterface {
+export class Music extends YtDlp implements MusicInterface {
   private ytapi: youtube_v3.Youtube = google.youtube({
     version: "v3",
     auth: process.env.YOUTUBE_TOKEN,
@@ -66,6 +66,7 @@ export class Music implements MusicInterface {
   private forceAdded: boolean;
 
   constructor(private client: Client) {
+    super();
     this.embedPlayer = new EmbedPlayer();
     this.player = createAudioPlayer({
       behaviors: { noSubscriber: NoSubscriberBehavior.Pause },
@@ -239,7 +240,7 @@ export class Music implements MusicInterface {
         const videoDetails = await this.getTrackInfo(item.id.videoId);
         if (errCount)
           await this.textChannel.send(
-            `После ${errCount} попыток скачать трек, счакалось это [${videoDetails.title}](<${videoDetails.video_url}>)`,
+            `После ${errCount} попыток скачать трек, счакалось это [${videoDetails.title}](<${videoDetails.url}>)`,
           );
         break;
       } catch (error) {
@@ -273,14 +274,15 @@ export class Music implements MusicInterface {
     )}>) другую версию. Причина: ${reason.message || reason}`;
   }
 
-  private async getTrackInfo(href: string): Promise<ytdl.MoreVideoDetails> {
+  private async getTrackInfo(href: string): Promise<VideoInfo> {
     try {
-      const { videoDetails }: ytdl.videoInfo = await ytdl.getBasicInfo(href);
+      const videoDetails = await this.getInfoAsync<"video">(href);
+      console.log(videoDetails);
       this.addQueue({
-        url: videoDetails.video_url,
+        url: videoDetails.webpage_url,
         title: videoDetails.title,
         thumbnail: videoDetails.thumbnails[0].url,
-        duration: videoDetails.lengthSeconds,
+        duration: `${videoDetails.duration}`,
       });
       return videoDetails;
     } catch (error) {
@@ -308,36 +310,27 @@ export class Music implements MusicInterface {
     }
   }
 
-  private makeAudioResource(): Promise<AudioResource> {
-    return new Promise(async (resolve, reject) => {
-      try {
-        this.currentTrack = this.queue.shift();
-        if (!this.currentTrack) return reject("Нету трека");
-        const fileName = `resources/${`${Math.random()}`.replace(
-          "0.",
-          "",
-        )}.webm`;
-        const ytdlStream = ytdl(this.currentTrack.url.trim(), {
-          filter: "audioonly",
-        });
-        ytdlStream.pipe(createWriteStream(fileName));
-        ytdlStream.on("finish", () => {
-          const resource: AudioResource = createAudioResource(
-            createReadStream(fileName),
-            {
-              inputType: StreamType.WebmOpus,
-              inlineVolume: true,
-            },
-          );
-          this.player.play(resource);
-          this.renderQueue();
-          resolve(resource);
-        });
-        ytdlStream.on("error", (err) => reject(err));
-      } catch (err) {
-        throw err;
-      }
-    });
+  private async makeAudioResource(): Promise<AudioResource> {
+    try {
+      this.currentTrack = this.queue.shift();
+      if (!this.currentTrack) throw "Нету трека";
+      console.log("Current track:", this.currentTrack);
+      const fileName = `resources/${`${Math.random()}`.replace("0.", "")}.mp3`;
+      const ytdlStream = this.stream<"audioonly">(this.currentTrack.url.trim());
+      await ytdlStream.pipeAsync(createWriteStream(fileName));
+      const resource: AudioResource = createAudioResource(
+        createReadStream(fileName),
+        {
+          inputType: StreamType.WebmOpus,
+          inlineVolume: true,
+        },
+      );
+      this.player.play(resource);
+      this.renderQueue();
+      return resource;
+    } catch (err) {
+      throw err;
+    }
   }
 
   private connection(voiceChannel: VoiceBasedChannel) {
